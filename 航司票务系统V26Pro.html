@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>航司运营系统</title>
+    <style>
+        * { box-sizing: border-box; } 
+        :root {
+            --bg: #0f172a; --panel: #1e293b; --primary: #3b82f6; --primary-hover: #2563eb;
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444; 
+            --text: #f8fafc; --text-muted: #94a3b8; --border: #334155; 
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; }
+        .app-container { max-width: 600px; margin: 0 auto; padding: 15px; padding-bottom: 40px; }
+        
+        .header { text-align: center; padding: 15px 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 1.2em; color: var(--text-muted); font-weight: normal; }
+        .funds { font-size: 2.2em; font-weight: bold; color: var(--success); margin-top: 5px; text-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+        .funds.loss { color: var(--danger); text-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+        
+        .page { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { background: var(--panel); border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); }
+        .card-title { margin-top: 0; font-size: 1.1em; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; color: var(--primary); }
+        
+        .form-row { display: flex; gap: 10px; margin-bottom: 12px; width: 100%; }
+        .form-group { flex: 1; display: flex; flex-direction: column; width: 100%; position: relative; }
+        @media (max-width: 500px) { .form-row { flex-direction: column; gap: 12px; } .radio-group { flex-direction: column; } }
+
+        label { font-size: 0.85em; color: var(--text-muted); margin-bottom: 5px; }
+        input, select { background: var(--bg); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; font-size: 1em; outline: none; width: 100%; transition: border 0.2s;}
+        input:focus, select:focus { border-color: var(--primary); }
+        input[type="file"] { padding: 10px; border: 1px dashed var(--border); background: rgba(255,255,255,0.02); }
+        input[type="date"] { color-scheme: dark; }
+        
+        .radio-group { display: flex; gap: 10px; width: 100%; flex-wrap: wrap; }
+        .radio-group label { flex: 1; min-width: 70px; background: var(--bg); padding: 12px 8px; text-align: center; border-radius: 8px; border: 1px solid var(--border); margin:0; color: white; cursor: pointer; font-size: 0.85em; }
+        .radio-group input { display: none; }
+        .radio-group input:checked + span { color: var(--primary); font-weight: bold; }
+        .radio-group label:has(input:checked) { border-color: var(--primary); background: rgba(59, 130, 246, 0.1); }
+
+        button.btn-main { width: 100%; background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-size: 1.1em; font-weight: bold; margin-top: 10px; cursor: pointer; transition: 0.2s; }
+        button.btn-main:active { transform: scale(0.98); }
+        
+        .terminal { background: #0c0c0c; color: #00ff00; font-family: var(--font-mono); padding: 15px; border-radius: 8px; font-size: 0.85em; line-height: 1.6; margin-bottom: 15px; overflow-x: auto; border: 1px solid #333; display: none; }
+        .terminal .hl { color: #ffff00; }
+        .terminal .warn { color: #ff5555; font-weight: bold;}
+
+        .ticket-view { background: #ffffff; color: #1e293b; border-radius: 12px; margin-bottom: 15px; position: relative; box-shadow: 0 10px 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;}
+        .ticket-main { padding: 20px; border-bottom: 2px dashed #cbd5e1; position: relative;}
+        .ticket-stub { padding: 15px 20px; background: #f8fafc; border-top: none; }
+        .ticket-main::before, .ticket-main::after { content: ''; position: absolute; bottom: -10px; width: 20px; height: 20px; background: var(--bg); border-radius: 50%; z-index: 2;}
+        .ticket-main::before { left: -10px; } .ticket-main::after { right: -10px; }
+        
+        .tkt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .tkt-airline { font-weight: 900; font-size: 1.1em; color: #0f172a; letter-spacing: 1px;}
+        .tkt-class { background: #0f172a; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; font-weight: bold;}
+        
+        .tkt-route { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .tkt-city { text-align: center; }
+        .tkt-code { font-size: 2.5em; font-weight: 900; color: #2563eb; line-height: 1;}
+        .tkt-icon { font-size: 1.5em; color: #94a3b8; transform: rotate(90deg); }
+        
+        .tkt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 0.85em; margin-bottom: 15px;}
+        .tkt-lbl { color: #64748b; font-size: 0.75em; text-transform: uppercase; margin-bottom: 2px; line-height: 1.1;}
+        .tkt-val { font-weight: bold; font-size: 1.1em; color: #0f172a;}
+        .tkt-highlight { color: #dc2626; font-size: 1.3em; }
+        
+        .tkt-barcode { height: 40px; margin-top: 10px; background: repeating-linear-gradient(90deg, #0f172a, #0f172a 2px, #fff 2px, #fff 4px, #0f172a 4px, #0f172a 5px, #fff 5px, #fff 8px, #0f172a 8px, #0f172a 12px, #fff 12px, #fff 14px); opacity: 0.8;}
+
+        .flight-log { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.85em;}
+        .log-item { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--text-muted); align-items: flex-start;}
+        .log-item span:first-child { color: var(--text); font-weight: bold; width: 140px;}
+        .log-diff { font-size: 0.9em; margin-left: 5px; }
+        .diff-early { color: var(--success); }
+        .diff-late { color: var(--danger); }
+        
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 4px; font-weight: bold; font-size: 0.9em; margin-bottom: 15px; }
+        .status-early { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+        .status-delayed { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+
+        .flight-progress { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .phase-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); opacity: 0.5; transition: all 0.3s; }
+        .phase-item.active { opacity: 1; border-color: var(--warning); background: rgba(245, 158, 11, 0.1); }
+        .phase-item.completed { opacity: 1; border-color: var(--success); }
+        .phase-left { display: flex; align-items: center; }
+        .phase-icon { margin-right: 12px; font-size: 1.2em; }
+        .phase-expected { font-family: var(--font-mono); font-size: 0.85em; color: var(--primary); }
+        
+        #loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        .spinner { border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed var(--border); padding-bottom: 4px; font-size: 0.9em;}
+        .receipt-total { display: flex; justify-content: space-between; margin-top: 15px; font-size: 1.2em; font-weight: bold; padding-top: 10px; border-top: 2px solid var(--border); }
+        .ac-badge { display: inline-block; background: rgba(16, 185, 129, 0.2); color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 0.8em; margin-top: 5px; font-weight: bold; border: 1px solid var(--success);}
+        .ai-badge { position: absolute; top: 38px; right: 10px; font-size: 0.7em; background: var(--primary); padding: 2px 5px; border-radius: 4px; pointer-events: none;}
+        .airline-type-info { font-size: 0.8em; color: var(--warning); margin-top: 4px; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header">
+        <h1>航空公司财务总账 (CNY)</h1>
+        <div class="funds" id="ui-funds">¥0.00</div>
+        <div style="font-size:0.85em;color:var(--text-muted);margin-top:8px;cursor:pointer;text-decoration:underline;" onclick="resetFunds()">[ 申请破产重组: 资金还原为 100,000 ]</div>
+    </div>
+
+    <!-- ========== 页面1：数据库加载 ========== -->
+    <div id="page-plan" class="page active">
+        <div class="card">
+            <h2 class="card-title">1. 本地数据库加载</h2>
+
+            <div class="form-row"><div class="form-group"><label>机场数据库</label><input type="file" id="airportFile"></div></div>
+            <div class="form-row"><div class="form-group"><label>机型数据库</label><input type="file" id="aircraftFile"></div></div>
+            <button class="btn-main" style="padding:12px;font-size:1em;" onclick="bootSystem()">⚡ 验证并加载数据库</button>
+            <div id="dbStatus" style="text-align:center;margin-top:10px;color:var(--text-muted);font-size:0.9em;">等待加载...</div>
+        </div>
+
+        <!-- ========== 页面2：航班排班（数据库加载后显示）========== -->
+        <div id="flightSetupArea" style="display:none;">
+            <div class="card">
+                <h2 class="card-title">2. 航班排班与票务定价 (机长决策)</h2>
+                
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label>✈️ 航空公司类型</label>
+                    <div class="radio-group" id="airlineTypeGroup">
+                        <label><input type="radio" name="airlineType" value="budget" onchange="updateAirlineType()"><span>💰 廉价航司</span></label>
+                        <label><input type="radio" name="airlineType" value="standard" checked onchange="updateAirlineType()"><span>✈️ 标准航司</span></label>
+                        <label><input type="radio" name="airlineType" value="fullservice" onchange="updateAirlineType()"><span>👑 全服务航司</span></label>
+                    </div>
+                    <div class="airline-type-info" id="airlineTypeInfo">✈️ 标准航司：票价适中，成本适中，中规中矩</div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group"><label>航班号</label><input type="text" id="fltNum" value="CX880" oninput="this.value = this.value.toUpperCase()"></div>
+                    <div class="form-group"><label>飞行日期</label><input type="date" id="flightDate" onchange="updateDateInfo()"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>计划起飞时间</label><input type="time" id="depTime" value="08:00" onchange="updateTimeInfo()"></div>
+                </div>
+                <div style="font-size:0.8em;margin-bottom:8px;">
+                    <span id="dateInfo" style="color:var(--success);"></span>
+                    <span id="timeInfo" style="color:var(--warning);margin-left:10px;"></span>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group"><label>起飞机场 (ICAO/IATA)</label><input type="text" id="depApt" oninput="calcRoute()" placeholder="如 ZGHA"><small id="depName" style="color:var(--success);font-weight:bold;"></small></div>
+                    <div class="form-group"><label>降落机场 (ICAO/IATA)</label><input type="text" id="arrApt" oninput="calcRoute()" placeholder="如 ZSNJ"><small id="arrName" style="color:var(--success);font-weight:bold;"></small></div>
+                </div>
+
+                <div class="form-group" style="margin-top:10px;"><label>分配机型</label><select id="acSelect" onchange="updateAcInfo()"></select><div class="ac-badge" id="acMaxSeats">当前机型最大理论容量: -- 座</div></div>
+                
+                <div class="form-group" style="margin-top:10px;">
+                    <label>客舱物理布局</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="cabin" value="first" checked onchange="updateUI()"><span>头等舱 + 经济舱</span></label>
+                        <label><input type="radio" name="cabin" value="biz" onchange="updateUI()"><span>公务舱 + 经济舱</span></label>
+                    </div>
+                </div>
+                
+                <div class="form-row" style="margin-top:10px;">
+    <div class="form-group"><label id="lblPremiumSeat">高级舱座位数</label><input type="number" id="capPremium" value="20"></div>
+    <div class="form-group"><label>经济舱座位数</label><input type="number" id="capEco" value="180"></div>
+</div>
+
+                <div class="form-row">
+                    <div class="form-group"><label id="lblPremiumPrice">高级舱票价 (¥)</label><input type="number" id="pricePremium" value="0"><span class="ai-badge">推荐</span></div>
+                    <div class="form-group"><label>经济舱票价 (¥)</label><input type="number" id="priceEco" value="0"><span class="ai-badge">推荐</span></div>
+                </div>
+                
+                <div class="form-group" style="margin-top:10px;">
+                    <label>🎫 票价折扣（0.5~9.5折）</label>
+                    <input type="number" id="discountInput" value="10" min="0.5" max="9.5" step="0.1" oninput="updateDiscount()" placeholder="10=不打折">
+                    <div style="font-size:0.8em;color:var(--success);margin-top:4px;" id="discountInfo">10折 = 不打折</div>
+                </div>
+                
+                <button class="btn-main" onclick="sellTickets()">提交排班并开放售票</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 页面3：售票结果与签派配载 ========== -->
+    <div id="page-dispatch-input" class="page">
+        <div class="card">
+            <h2 class="card-title">3. 售票结果与AI签派配载</h2>
+            <div id="salesReport" style="background:#1e293b;padding:15px;border-left:4px solid var(--success);margin-bottom:15px;line-height:1.6;"></div>
+            
+            <div id="secondDiscountArea" style="display:none;background:#1e293b;padding:12px;border-radius:8px;margin-bottom:15px;border:1px dashed var(--warning);">
+                <label style="color:var(--warning);">🎫 二次打折（仅对未售出座位生效）</label>
+                <div class="form-row"><div class="form-group"><label>折扣（0.5~9.5折）</label><input type="number" id="discountInput2" value="10" min="0.5" max="9.5" step="0.1" oninput="previewSecondDiscount()" placeholder="10=不打折"></div></div>
+                <div id="secondDiscountPreview" style="font-size:0.8em;color:var(--success);margin-top:4px;"></div>
+                <button class="btn-main" style="background:var(--warning);margin-top:8px;padding:10px;font-size:0.9em;" onclick="applySecondDiscount()">应用二次打折并重新售票</button>
+            </div>
+            
+            <div style="color:var(--warning);font-size:0.85em;margin-bottom:15px;">已根据距离、日期、时段和客流，AI自动计算了所需配载。</div>
+            
+            <div class="form-row"><div class="form-group"><label>空乘人数</label><input type="number" id="crewCount" value="0"></div><div class="form-group"><label>航班货运重量 (kg)</label><input type="number" id="cargoKg" value="0"></div></div>
+            <div class="form-row"><div class="form-group"><label>目的温度 (°C)</label><input type="number" id="envTemp" value="15"></div><div class="form-group"><label>目的海拔 (米)</label><input type="number" id="envAlt" value="50"></div></div>
+            <div class="form-row"><div class="form-group"><label>平均风速 (kt, 逆正顺负)</label><input type="number" id="envWind" value="0"></div><div class="form-group"><label>餐食补给重量 (kg)</label><input type="number" id="mealKg" value="0"></div></div>
+           
+            <div class="form-row">
+    <div class="form-group">
+        <label>巡航高度层 (FL)</label>
+        <select id="cruiseFL">
+            <option value="280">FL280 (8500m)</option>
+            <option value="300">FL300 (9100m)</option>
+            <option value="320">FL320 (9800m)</option>
+            <option value="340" selected>FL340 (10400m)</option>
+            <option value="360">FL360 (11000m)</option>
+            <option value="380">FL380 (11600m)</option>
+            <option value="400">FL400 (12200m)</option>
+            <option value="430">FL430 (13100m)</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>成本指数 (CI 0-999)</label>
+        <input type="number" id="costIndex" value="30" min="0" max="999" placeholder="0=省油 999=快速">
+    </div>
+</div>
+            <div class="form-group"><label>签派燃油安全策略</label><select id="fuelPolicy"><option value="1">紧凑版</option><option value="2" selected>标准版</option><option value="3">高冗余版</option></select></div>
+            <button class="btn-main" style="background:var(--success);" onclick="submitDispatch()">核准配载并生成物理放行单</button>
+        </div>
+    </div>
+
+    <!-- ========== 页面4：放行单与登机牌 ========== -->
+    <div id="page-dispatch-release" class="page">
+        <div class="card" style="padding-top:10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:15px;border-bottom:1px solid var(--border);padding-bottom:10px;">
+                <button onclick="toggleView('ticket')" id="tabTkt" style="flex:1;background:none;border:none;color:var(--primary);font-size:1.1em;font-weight:bold;cursor:pointer;">🎫 电子登机牌</button>
+                <button onclick="toggleView('terminal')" id="tabTerm" style="flex:1;background:none;border:none;color:var(--text);font-size:1.1em;font-weight:bold;cursor:pointer;">💻 物理放行单</button>
+            </div>
+            
+            <div class="ticket-view" id="passengerTicket">
+                <div class="ticket-main">
+                    <div class="tkt-header"><div class="tkt-airline">模拟航空 SIMULATED AIRLINES</div><div class="tkt-class" id="tktCabin">经济舱 / ECONOMY</div></div>
+                    <div class="tkt-route"><div class="tkt-city"><div class="tkt-code" id="tktDep">HKG</div></div><div class="tkt-icon">✈</div><div class="tkt-city"><div class="tkt-code" id="tktArr">LAX</div></div></div>
+                    <div class="tkt-grid">
+                        <div><div class="tkt-lbl">旅客姓名<br>NAME</div><div class="tkt-val">贵宾 / VIP</div></div>
+                        <div><div class="tkt-lbl">航班号<br>FLIGHT</div><div class="tkt-val" id="tktFlt">CX880</div></div>
+                        <div><div class="tkt-lbl">日期<br>DATE</div><div class="tkt-val" id="tktDate">今日 TODAY</div></div>
+                        <div><div class="tkt-lbl">登机口<br>GATE</div><div class="tkt-val" id="tktGate">G23</div></div>
+                        <div><div class="tkt-lbl">登机时间<br>BOARDING</div><div class="tkt-val tkt-highlight" id="tktBrdTime">07:20</div></div>
+                        <div><div class="tkt-lbl">座位<br>SEAT</div><div class="tkt-val tkt-highlight" id="tktSeat">12A</div></div>
+                    </div>
+                    <div class="tkt-grid" style="margin-bottom:0;">
+                        <div><div class="tkt-lbl">预计起飞<br>DEPARTURE</div><div class="tkt-val" id="tktDepTime">08:00</div></div>
+                        <div><div class="tkt-lbl">预计到达<br>EST. ARRIVAL</div><div class="tkt-val" id="tktArrTime">20:30</div></div>
+                        <div><div class="tkt-lbl">订票编码<br>PNR REF</div><div class="tkt-val" id="tktPNR" style="color:#2563eb;">A8B9C2</div></div>
+                    </div>
+                </div>
+                <div class="ticket-stub"><div style="display:flex;justify-content:space-between;align-items:center;"><div><div class="tkt-lbl">流水号 / SEQ NO.</div><div class="tkt-val" id="tktSeq">045</div></div><div class="tkt-barcode"></div></div></div>
+            </div>
+
+            <div class="terminal" id="releaseTerminal"></div>
+            <button class="btn-main" style="background:var(--success);" onclick="startFlight()">进入模拟器驾驶舱执行飞行</button>
+        </div>
+    </div>
+
+    <!-- ========== 页面5：飞行阶段追踪 ========== -->
+    <div id="page-flight" class="page">
+        <div class="card">
+            <h2 class="card-title" id="flightTitle">航班执行中</h2>
+            <div style="color:var(--warning);font-size:0.9em;margin-bottom:15px;line-height:1.5;">
+                ✈️ 系统已抓取您此刻的<b>真实手机时间</b>作为初始停靠时间。<br>
+                请根据 RFS 模拟器的物理进度，手动点击下方按钮逐个核准。系统内置了真实的 AI 航班时长预估模型！
+            </div>
+            <div class="flight-progress" id="phaseContainer"></div>
+            <button id="btnNextPhase" class="btn-main" onclick="advancePhase()">加载中...</button>
+        </div>
+    </div>
+
+    <!-- ========== 页面6：财务结算 ========== -->
+    <div id="page-report" class="page">
+        <div class="card">
+            <h2 class="card-title">航线最终财务结算表单</h2>
+            <div id="receiptContent"></div>
+            <button class="btn-main" onclick="finishAndReset()">确认入账并返回主界面</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 加载动画 ========== -->
+
+<!-- ========== 密钥验证弹窗 ========== -->
+<div id="keyModal" data-prevent-back="true" style="display:flex; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); z-index:999; flex-direction:column; justify-content:center; align-items:center;">
+    <div style="background:var(--panel); padding:25px; border-radius:12px; text-align:center; max-width:350px; width:90%;">
+        <h3 style="color:var(--text); margin-bottom:15px;">🔑 验证密钥</h3>
+        <input type="text" id="licenseInput" placeholder="输入你的密钥" style="width:100%; margin-bottom:12px; text-align:center; font-size:1.1em;">
+        <button id="keyBtn" class="btn-main" onclick="activateKey()" style="margin-top:0;">确认</button>
+        <p style="color:var(--text-muted); font-size:0.75em; margin-top:10px;">购买密钥请联系QQ234745837</p>
+    </div>
+</div>
+
+<!-- ========== 验证成功弹窗 ========== -->
+<div id="successModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:1001; flex-direction:column; justify-content:center; align-items:center;">
+    <div style="background:var(--panel); padding:25px; border-radius:12px; text-align:center; max-width:300px; width:90%;">
+        <div style="font-size:3em;">✅</div>
+        <h3 style="color:var(--success); margin:10px 0;">验证成功</h3>
+        <p style="color:var(--text-muted);">到期时间</p>
+        <p style="color:var(--text); font-weight:bold;" id="successExpire"></p>
+    </div>
+</div>
+
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <h3 style="color:white;margin:0;" id="loadingTitle">AI 运算中</h3>
+    <p style="color:var(--text-muted);font-size:0.9em;" id="loadingText">处理中...</p>
+</div>
+
+<!-- ================================================================== -->
+<!--                            JavaScript 主体                           -->
+<!-- ================================================================== -->
+<script>
+    // ============================================================
+    //  RFS 骨灰级航司运营系统 v12.0
+    //  AI模型基于136条全球真实航线数据训练校准
+    //  功能：智能节假日识别、时段客流分析、红眼成本折扣
+    //        一次/二次打折售票、签派放行、飞行阶段追踪、财务结算
+    // ============================================================
+
+    // --- 1. 资金初始化 ---
+    let funds = parseFloat(localStorage.getItem('rfsAirlineFunds') || 1000000);
+    const updateFundsUI = () => {
+        const el = document.getElementById('ui-funds');
+        el.innerText = '¥' + funds.toLocaleString('zh-CN', {minimumFractionDigits: 2});
+        if(funds < 0) el.classList.add('loss'); else el.classList.remove('loss');
+    };
+    updateFundsUI();
+
+    let airports = [], aircrafts = [];
+    let airportCoords = {}, airportNames = {};
+    let flightData = {};
+
+    // ============================================================
+    //  航司类型配置（136条数据校准）
+    //  廉价=全服务45% | 标准=全服务75% | 全服务=基准100%
+    // ============================================================
+    function getAirlineTypeConfig() {
+        const type = document.querySelector('input[name="airlineType"]:checked').value;
+        if (type === 'budget') return {
+            name: '廉价航司',
+            priceMult: 0.45,
+            costMult: 0.4,
+            surchargeMult: 2.5,
+            lfBonus: 0.2,
+            desc: '💰 廉价航司：票价极低，成本更低，附加费多，薄利多销利润率反而可能更高'
+        };
+        if (type === 'fullservice') return {
+            name: '全服务航司',
+            priceMult: 1.0,
+            costMult: 1.05,
+            surchargeMult: 1.3,
+            lfBonus: 0.05,
+            desc: '👑 全服务航司：票价正常，服务好，成本较高，适合高端航线'
+        };
+        return {
+            name: '标准航司',
+            priceMult: 0.75,
+            costMult: 0.85,
+            surchargeMult: 1.0,
+            lfBonus: 0.1,
+            desc: '✈️ 标准航司：票价适中，成本适中，中规中矩'
+        };
+    }
+
+    function updateAirlineType() {
+        const config = getAirlineTypeConfig();
+        document.getElementById('airlineTypeInfo').innerText = config.desc;
+        calcRoute();
+    }
+
+    // ============================================================
+    //  智能节假日识别系统（支持8种日期类型）
+    //  春运/国庆/五一/暑运/复活节/圣诞节/周末/工作日
+    // ============================================================
+    function getHolidayFactor(dateStr) {
+        if (!dateStr) return 1.0;
+        const d = new Date(dateStr + 'T00:00:00');
+        const m = d.getMonth() + 1, day = d.getDate(), w = d.getDay();
+        if ((m === 1 && day >= 15) || (m === 2 && day <= 15)) return 1.8;   // 春运高峰
+        if ((m === 9 && day >= 28) || (m === 10 && day <= 8)) return 1.8;   // 国庆黄金周
+        if ((m === 4 && day >= 28) || (m === 5 && day <= 5)) return 1.5;    // 五一假期
+        if (m === 7 || m === 8) return 1.35;                                 // 暑运旺季
+        if ((m === 3 && day >= 25) || (m === 4 && day <= 5)) return 2.2;    // 复活节
+        if (m === 12 && day >= 20 && day <= 31) return 2.5;                 // 圣诞节
+        if (m === 1 || m === 2) return 1.25;                                 // 春运期间
+        if (w === 5 || w === 6 || w === 0) return 1.2;                       // 周末
+        return 1.0;                                                           // 工作日
+    }
+
+function getHolidayPriceMultiplier(dateStr) {
+    if (!dateStr) return 1.0;
+    const d = new Date(dateStr + 'T00:00:00');
+    const m = d.getMonth() + 1, day = d.getDate();
+    if ((m === 1 && day >= 15) || (m === 2 && day <= 15)) return 2.5;
+    if ((m === 9 && day >= 28) || (m === 10 && day <= 8)) return 2.5;
+    if ((m === 4 && day >= 28) || (m === 5 && day <= 5)) return 1.8;
+    if (m === 7 || m === 8) return 1.4;
+    if ((m === 3 && day >= 25) || (m === 4 && day <= 5)) return 3.5;
+    if (m === 12 && day >= 20 && day <= 31) return 3.5;
+    if (m === 1 || m === 2) return 1.8;
+    return 1.0;
+}
+
+function getHolidayName(dateStr) {
+    if (!dateStr) return '📅 未选择日期';
+    const d = new Date(dateStr + 'T00:00:00');
+    const m = d.getMonth() + 1, day = d.getDate(), w = d.getDay();
+    if ((m === 1 && day >= 15) || (m === 2 && day <= 15)) return '🚀 春运高峰';
+    if ((m === 9 && day >= 28) || (m === 10 && day <= 8)) return '🎉 国庆黄金周';
+    if ((m === 4 && day >= 28) || (m === 5 && day <= 5)) return '🌿 五一假期';
+    if (m === 7 || m === 8) return '☀️ 暑运旺季';
+    if ((m === 3 && day >= 25) || (m === 4 && day <= 5)) return '🥚 复活节';
+    if (m === 12 && day >= 20 && day <= 31) return '🎄 圣诞节';
+    if (m === 1 || m === 2) return '❄️ 春运期间';
+    if (w === 5 || w === 6 || w === 0) return '📅 周末';
+    return '📅 工作日';
+}
+
+    function updateDateInfo() {
+        const ds = document.getElementById('flightDate').value;
+        document.getElementById('dateInfo').innerText = getHolidayName(ds) + ' (客流×' + getHolidayFactor(ds).toFixed(2) + ')';
+        calcRoute();
+    }
+
+    // ============================================================
+    //  时段客流影响系统（7个时段）
+    //  红眼0.55 / 早班0.70 / 上午0.90 / 黄金1.15 / 下午1.05 / 晚班0.80
+    // ============================================================
+    function getTimeFactor(timeStr) {
+        if (!timeStr) return 1.0;
+        const h = parseInt(timeStr.split(':')[0]);
+        if (h >= 22 || h <= 5) return 0.55;   // 红眼航班
+        if (h >= 6 && h <= 7) return 0.70;     // 早班
+        if (h >= 8 && h <= 9) return 0.90;     // 上午
+        if (h >= 10 && h <= 15) return 1.15;   // 黄金时段
+        if (h >= 16 && h <= 18) return 1.05;   // 下午
+        if (h >= 19 && h <= 21) return 0.80;   // 晚班
+        return 1.0;
+    }
+
+    function getTimeName(timeStr) {
+        if (!timeStr) return '';
+        const h = parseInt(timeStr.split(':')[0]);
+        if (h >= 22 || h <= 5) return '🌙 红眼航班';
+        if (h >= 6 && h <= 7) return '🌅 早班';
+        if (h >= 8 && h <= 9) return '☀️ 上午';
+        if (h >= 10 && h <= 15) return '🔥 黄金时段';
+        if (h >= 16 && h <= 18) return '🌤 下午';
+        if (h >= 19 && h <= 21) return '🌆 晚班';
+        return '';
+    }
+
+    function updateTimeInfo() {
+        const ts = document.getElementById('depTime').value;
+        document.getElementById('timeInfo').innerText = getTimeName(ts) + ' (客流×' + getTimeFactor(ts).toFixed(2) + ')';
+        calcRoute();
+    }
+
+    // ============================================================
+    //  一次折扣功能
+    // ============================================================
+    function updateDiscount() {
+        let val = parseFloat(document.getElementById('discountInput').value);
+        if (isNaN(val) || val < 0.5) val = 0.5;
+        if (val > 10) val = 10;
+        const discount = val / 10;
+        if (flightData.baseEco) {
+            document.getElementById('priceEco').value = Math.floor(flightData.baseEco * discount);
+        }
+        if (flightData.basePrm) {
+            document.getElementById('pricePremium').value = Math.floor(flightData.basePrm * discount);
+        }
+        document.getElementById('discountInfo').innerText = val === 10 ? '不打折，按甜点价售票' : val + '折，预计上座率提升';
+    }
+
+    // ============================================================
+    //  二次打折功能
+    // ============================================================
+    function previewSecondDiscount() {
+        let val = parseFloat(document.getElementById('discountInput2').value);
+        if (isNaN(val) || val < 0.5) val = 0.5;
+        if (val > 10) val = 10;
+        const discount = val / 10;
+        const capEco = parseInt(document.getElementById('capEco').value) || 0;
+const capPrm = parseInt(document.getElementById('capPremium').value) || 0;
+const remainEco = capEco - flightData.firstEcoSold;
+const remainPrm = capPrm - flightData.firstPrmSold;
+        const newEcoPrice = Math.floor(flightData.firstEcoPrice * discount);
+        const newPrmPrice = Math.floor(flightData.firstPrmPrice * discount);
+        if (val === 10) {
+            document.getElementById('secondDiscountPreview').innerText = '不打折，不新增售票';
+        } else {
+            document.getElementById('secondDiscountPreview').innerText = 
+                '二次打折后：经济舱 ¥' + newEcoPrice + '（剩' + Math.max(0,remainEco) + '座）| 高级舱 ¥' + newPrmPrice + '（剩' + Math.max(0,remainPrm) + '座）';
+        }
+    }
+
+    function applySecondDiscount() {
+        let val = parseFloat(document.getElementById('discountInput2').value);
+        if (isNaN(val) || val < 0.5) val = 0.5;
+        if (val > 10) val = 10;
+        if (val === 10) { alert('不打折，无需二次售票'); return; }
+        const discount = val / 10;
+        const plane = flightData.aircraft;
+        const capEco = parseInt(document.getElementById('capEco').value) || 0;
+const capPrm = parseInt(document.getElementById('capPremium').value) || 0;
+const remainEco = capEco - flightData.firstEcoSold;
+const remainPrm = capPrm - flightData.firstPrmSold;
+        const newEcoPrice = Math.floor(flightData.firstEcoPrice * discount);
+        const newPrmPrice = Math.floor(flightData.firstPrmPrice * discount);
+        const ac = flightData.airlineConfig;
+        const getLF = (ratio) => {
+            let base;
+            if (ratio <= 0.5) base = 0.99;
+            else if (ratio <= 0.7) base = 0.93;
+            else if (ratio <= 0.85) base = 0.85;
+            else if (ratio <= 1.0) base = 0.70;
+            else base = 0.30;
+            return Math.min(0.99, Math.max(0.02, base + ac.lfBonus + (Math.random() - 0.5) * 0.1));
+        };
+        const newEcoSold = Math.floor(Math.max(0, remainEco) * getLF(newEcoPrice / Math.max(1, flightData.firstEcoPrice)));
+        const newPrmSold = Math.floor(Math.max(0, remainPrm) * getLF(newPrmPrice / Math.max(1, flightData.firstPrmPrice)));
+        const firstRev = flightData.firstEcoSold * flightData.firstEcoPrice + flightData.firstPrmSold * flightData.firstPrmPrice;
+        const secondRev = newEcoSold * newEcoPrice + newPrmSold * newPrmPrice;
+        flightData.ecoSold = flightData.firstEcoSold + newEcoSold;
+        flightData.prmSold = flightData.firstPrmSold + newPrmSold;
+        flightData.pax = flightData.ecoSold + flightData.prmSold;
+        flightData.tktRev = firstRev + secondRev;
+        flightData.surcharges = flightData.pax * (flightData.gcDist > 2000 ? 100 : 30);
+        document.getElementById('salesReport').innerHTML = 
+            '<b>二次售票完成！[' + ac.name + ']</b><br>' +
+            '<span style="color:var(--primary)">' + flightData.prmName + '</span>: <b>' + flightData.prmSold + '</b> 座（首次' + flightData.firstPrmSold + '+新增' + newPrmSold + '）<br>' +
+            '<span style="color:var(--primary)">经济舱</span>: <b>' + flightData.ecoSold + '</b> 座（首次' + flightData.firstEcoSold + '+新增' + newEcoSold + '）<br>' +
+            '总收入: <b style="color:var(--success);">¥' + flightData.tktRev.toLocaleString() + '</b>';
+        document.getElementById('secondDiscountArea').style.display = 'none';
+        document.getElementById('crewCount').value = Math.max(4, Math.ceil(flightData.pax / 30));
+    }
+
+    // ============================================================
+    //  数据库解析
+    // ============================================================
+    function parseAirports(text) {
+        const lines = text.split(/\r?\n/), result = [];
+        for (let i = 1; i < lines.length; i++) {
+            let line = lines[i].trim(); if (!line) continue;
+            let parts = [], inQuote = false, current = '';
+            for (let ch = 0; ch < line.length; ch++) {
+                let c = line[ch];
+                if (c === '"') inQuote = !inQuote;
+                else if (c === ',' && !inQuote) { parts.push(current); current = ''; }
+                else current += c;
+            }
+            parts.push(current);
+            for (let j = 0; j < parts.length; j++) parts[j] = parts[j].replace(/^"|"$/g, '').trim();
+            if (parts.length < 13) continue;
+            let ident = parts[0], name = parts[2], gpsCode = parts[8], iataCode = parts[9], coordStr = parts[12];
+            let icao = (gpsCode && gpsCode.length === 4) ? gpsCode : (ident && ident.length === 4 ? ident : "");
+            let coordMatch = coordStr.match(/([-+]?\d+\.?\d*)\s*[, ]\s*([-+]?\d+\.?\d*)/);
+            if (coordMatch && icao) {
+                result.push({ icao: icao.toUpperCase(), iata: iataCode ? iataCode.toUpperCase() : "", name: name || icao, lat: parseFloat(coordMatch[1]), lon: parseFloat(coordMatch[2]) });
+            }
+        }
+        return result;
+    }
+
+    function parseAircrafts(text) {
+        const lines = text.split(/\r?\n/), result = [];
+        for (let i = 1; i < lines.length; i++) {
+            let p = lines[i].trim().split(","); if (p.length < 7) continue;
+            let maxFuel = parseFloat(p[2]), speed = parseFloat(p[3]), baseFF = parseFloat(p[4]), wf = parseFloat(p[5]), taxi = parseFloat(p[6]);
+            if (maxFuel > 0) {
+                let cap = maxFuel > 100000 ? 400 : (maxFuel > 30000 ? 250 : 180);
+                if(p[1].includes("Concorde")) cap = 100;
+                result.push({ id: p[0].trim(), name: p[1].trim(), maxSeats: cap, maxFuel, speed, baseFF, weightFactor: wf, taxi });
+            }
+        }
+        return result;
+    }
+
+    async function bootSystem() {
+    const apFile = document.getElementById("airportFile").files[0];
+    const acFile = document.getElementById("aircraftFile").files[0];
+    
+    document.getElementById('dbStatus').innerText = "自动加载数据库中...";
+    try {
+        let apText = '', acText = '';
+        if (!apFile) {
+            const resp = await fetch('./raw_airports.csv');
+            if (resp.ok) apText = await resp.text();
+            else { alert("机场数据加载失败！请手动上传"); return; }
+        }
+        if (!acFile) {
+            const resp = await fetch('./aircrafts.csv');
+            if (resp.ok) acText = await resp.text();
+            else { alert("机型数据加载失败！请手动上传"); return; }
+        }
+        airports = parseAirports(apFile ? await apFile.text() : apText);
+        aircrafts = parseAircrafts(acFile ? await acFile.text() : acText);
+            if(airports.length === 0 || aircrafts.length === 0) { alert("解析失败！CSV格式有误。"); return; }
+            airportCoords = {}; airportNames = {};
+            airports.forEach(a => {
+                airportCoords[a.icao] = { lat: a.lat, lon: a.lon }; airportNames[a.icao] = a.name;
+                if(a.iata) { airportCoords[a.iata] = { lat: a.lat, lon: a.lon }; airportNames[a.iata] = a.name; }
+            });
+            const acSelect = document.getElementById('acSelect'); acSelect.innerHTML = '';
+            aircrafts.forEach((ac, idx) => { acSelect.add(new Option(ac.name, idx)); });
+            document.getElementById('dbStatus').innerText = '✅ 识别机场 ' + airports.length + ' | 机型 ' + aircrafts.length;
+            document.getElementById('dbStatus').style.color = "var(--success)";
+            document.getElementById('flightSetupArea').style.display = "block";
+            document.getElementById('discountInput').value = 10;
+            document.getElementById('flightDate').value = new Date().toISOString().split('T')[0];
+            updateDateInfo(); updateTimeInfo(); updateAcInfo();
+        } catch(e) { alert("文件读取错误。"); }
+    }
+
+    // ============================================================
+    //  票价公式（136条数据校准）
+    //  全服务经济舱每公里单价：0.70→0.65→0.55→0.50→0.45
+    // ============================================================
+    function calcBaseEcoPrice(distKm) {
+        if (distKm <= 800) return Math.floor(distKm * 0.70);
+        else if (distKm <= 2000) return Math.floor(distKm * 0.65);
+        else if (distKm <= 5000) return Math.floor(distKm * 0.55);
+        else if (distKm <= 10000) return Math.floor(distKm * 0.50);
+        else return Math.floor(distKm * 0.45);
+    }
+
+    function calcPrmMultiplier(distKm, isFirst) {
+        if (isFirst) return 4.5 - 1.0 * Math.min(1, distKm / 12000);
+        else return 2.8 - 0.6 * Math.min(1, distKm / 12000);
+    }
+
+    // --- 票价计算 ---
+    function updateAcInfo() {
+        const plane = aircrafts[document.getElementById('acSelect').value];
+        if(plane) {
+            document.getElementById('acMaxSeats').innerText = '当前机型最大理论容量: ' + plane.maxSeats + ' 座';
+            if(plane.name.includes("Concorde")) {
+                document.getElementById('capPremium').value = 100;
+                document.getElementById('capEco').value = 0;
+            } else {
+                const prmSeats = Math.floor(plane.maxSeats * 0.12);
+document.getElementById('capPremium').value = prmSeats;
+document.getElementById('capEco').value = plane.maxSeats - prmSeats;
+            }
+        }
+        calcRoute();
+    }
+
+    function calcRoute() {
+        const depCode = document.getElementById('depApt').value.toUpperCase().trim();
+        const arrCode = document.getElementById('arrApt').value.toUpperCase().trim();
+        const dep = airportCoords[depCode], arr = airportCoords[arrCode];
+        document.getElementById('depName').innerText = dep ? '📍 ' + airportNames[depCode] : '';
+        document.getElementById('arrName').innerText = arr ? '📍 ' + airportNames[arrCode] : '';
+        if (dep && arr) {
+            flightData.depCode = depCode; flightData.arrCode = arrCode;
+            const R = 6371, dLat = (arr.lat-dep.lat)*Math.PI/180, dLon = (arr.lon-dep.lon)*Math.PI/180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(dep.lat*Math.PI/180)*Math.cos(arr.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+            const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            flightData.gcDist = distKm * 0.539957;
+            const plane = aircrafts[document.getElementById('acSelect').value];
+            const isConcorde = plane && plane.name.includes("Concorde");
+            const ac = getAirlineTypeConfig();
+            let baseEco = Math.floor(calcBaseEcoPrice(distKm) * ac.priceMult);
+            const isFirst = document.querySelector('input[name="cabin"]:checked').value === 'first';
+            let basePrm = Math.floor(baseEco * calcPrmMultiplier(distKm, isFirst));
+            if(isConcorde) {
+                basePrm = Math.floor(baseEco * 5);
+                baseEco = Math.floor(baseEco * 2.8);
+            }
+            const holidayPriceMult = getHolidayPriceMultiplier(document.getElementById('flightDate').value);
+flightData.baseEco = Math.floor(baseEco * holidayPriceMult);
+flightData.basePrm = Math.floor(basePrm * holidayPriceMult);
+            let discountVal = parseFloat(document.getElementById('discountInput').value);
+if (isNaN(discountVal) || discountVal < 0.5 || discountVal > 10) discountVal = 10;
+const discount = discountVal / 10;
+const finalEco = Math.floor(flightData.baseEco * discount);
+const finalPrm = Math.floor(flightData.basePrm * discount);
+document.getElementById('priceEco').value = finalEco;
+document.getElementById('pricePremium').value = finalPrm;
+        } else {
+            flightData.gcDist = 0;
+        }
+    }
+
+    function updateUI() {
+        const isFirst = document.querySelector('input[name="cabin"]:checked').value === 'first';
+        document.getElementById('lblPremiumSeat').innerText = isFirst ? '头等舱座位数' : '公务舱座位数';
+        document.getElementById('lblPremiumPrice').innerText = isFirst ? '头等舱票价 (¥)' : '公务舱票价 (¥)';
+        calcRoute();
+    }
+
+    // ============================================================
+    //  AI智能售票（综合日期×时段×票价比率×航司类型）
+    // ============================================================
+    function sellTickets() {
+        if (!flightData.gcDist || flightData.gcDist <= 0) { alert("请填写正确的起降机场！"); return; }
+        const plane = aircrafts[document.getElementById('acSelect').value];
+        const capPrm = parseInt(document.getElementById('capPremium').value) || 0;
+        const capEco = parseInt(document.getElementById('capEco').value) || 0;
+        const isConcorde = plane.name.includes("Concorde");
+        if(isConcorde && (capPrm + capEco > 100)) { alert('协和号仅允许最多搭载 100 名乘客！'); return; }
+        if(capPrm + capEco > plane.maxSeats + 30) { alert('设定的总座位数严重超载！'); return; }
+        const prmPrice = parseFloat(document.getElementById('pricePremium').value) || 0;
+        const ecoPrice = parseFloat(document.getElementById('priceEco').value) || 0;
+        const ac = getAirlineTypeConfig();
+        const holidayName = getHolidayName(document.getElementById('flightDate').value);
+const timeName = getTimeName(document.getElementById('depTime').value);
+showLoading("AI售票中", "日期:" + holidayName + " | 时段:" + timeName + " | 正在综合计算...");
+        setTimeout(() => {
+            flightData.aircraft = plane;
+            flightData.airlineConfig = ac;
+            const isFirst = document.querySelector('input[name="cabin"]:checked').value === 'first';
+            flightData.prmName = isFirst ? '头等舱' : '公务舱';
+            if(isConcorde) flightData.prmName = '协和超音速舱';
+            const distKm = flightData.gcDist / 0.539957;
+            const ecoRef = Math.floor(calcBaseEcoPrice(distKm) * ac.priceMult);
+            const prmRef = Math.floor(ecoRef * calcPrmMultiplier(distKm, isFirst));
+            const ecoRatio = ecoPrice / Math.max(1, ecoRef);
+            const prmRatio = prmPrice / Math.max(1, prmRef);
+            const holidayFactor = getHolidayFactor(document.getElementById('flightDate').value);
+            const timeFactor = getTimeFactor(document.getElementById('depTime').value);
+            const getLF = (ratio) => {
+                let base;
+                if (ratio <= 0.5) base = 0.99;
+                else if (ratio <= 0.65) base = 0.96;
+                else if (ratio <= 0.8) base = 0.90;
+                else if (ratio <= 0.95) base = 0.82;
+                else if (ratio <= 1.05) base = 0.70;
+                else if (ratio <= 1.2) base = 0.50;
+                else if (ratio <= 1.5) base = 0.28;
+                else base = 0.08;
+                return Math.min(0.99, Math.max(0.02, base * timeFactor * holidayFactor + ac.lfBonus + (Math.random() - 0.5) * 0.06));
+            };
+            flightData.prmSold = Math.floor(capPrm * getLF(prmRatio));
+            flightData.ecoSold = Math.floor(capEco * getLF(ecoRatio));
+            flightData.pax = flightData.prmSold + flightData.ecoSold;
+            flightData.tktRev = flightData.prmSold * prmPrice + flightData.ecoSold * ecoPrice;
+            const baseSurcharge = flightData.gcDist > 2000 ? 100 : 30;
+            flightData.surcharges = flightData.pax * Math.floor(baseSurcharge * ac.surchargeMult);
+            document.getElementById('salesReport').innerHTML = 
+                '<b>客票预售结束！[' + ac.name + '] 实际载客量如下：</b><br>' +
+                '<span style="color:var(--primary)">' + flightData.prmName + '</span>: <b>' + flightData.prmSold + '</b> / ' + capPrm + ' 座<br>' +
+                '<span style="color:var(--primary)">经济舱</span>: <b>' + flightData.ecoSold + '</b> / ' + capEco + ' 座<br>' +
+                '总票款收入: <b style="color:var(--success);">¥' + flightData.tktRev.toLocaleString() + '</b><br>' +
+                '<small style="color:var(--text-muted)">附加费: ¥' + flightData.surcharges.toLocaleString() + ' | ' + getHolidayName(document.getElementById('flightDate').value) + '(票价×' + getHolidayPriceMultiplier(document.getElementById('flightDate').value).toFixed(1) + ') | ' + getTimeName(document.getElementById('depTime').value) + '</small>';
+            document.getElementById('crewCount').value = Math.max(4, Math.ceil(flightData.pax / 30));
+            document.getElementById('cargoKg').value = Math.floor(flightData.gcDist * 1.2 + (plane.maxSeats - flightData.pax) * 15);
+            document.getElementById('mealKg').value = Math.floor(flightData.pax * 1.2);
+            flightData.firstEcoPrice = ecoPrice;
+            flightData.firstPrmPrice = prmPrice;
+            flightData.firstEcoSold = flightData.ecoSold;
+            flightData.firstPrmSold = flightData.prmSold;
+            hideLoading();
+            autoSetDispatchDefaults(plane, flightData.gcDist);
+            showPage('page-dispatch-input');
+            setTimeout(() => {
+                const area = document.getElementById('secondDiscountArea');
+                if(area) area.style.display = 'block';
+            }, 300);
+        }, 1200);
+    }
+
+    // ============================================================
+    //  签派放行
+    // ============================================================
+    function getAltitudeFuelFactor(fl) {
+    const table = { 280: 1.08, 290: 1.05, 300: 1.02, 310: 1.00, 320: 0.97, 330: 0.95, 340: 0.92, 350: 0.90, 360: 0.88, 370: 0.86, 380: 0.85, 390: 0.84, 400: 0.83, 410: 0.84, 420: 0.86, 430: 0.88 };
+    return table[fl] || 0.92;
+}
+
+function getCostIndexFactors(ci) {
+    const speedFactor = 0.96 + (ci / 999) * 0.08;
+    const fuelFactor = 1.04 - (ci / 999) * 0.10;
+    return { speedMult: speedFactor, fuelMult: fuelFactor };
+}
+    function getFactors(policy) {
+        if(policy === "1") return { name: "紧凑版", cont: 0.03, alt: 0.08, res: 0.05, extraBase: 400, extraMul: 0.8 };
+        if(policy === "3") return { name: "高冗余版", cont: 0.08, alt: 0.18, res: 0.12, extraBase: 800, extraMul: 1.5 };
+        return { name: "标准版", cont: 0.05, alt: 0.12, res: 0.08, extraBase: 500, extraMul: 1.0 };
+    }
+
+    function formatTime(date) {
+        return date.getHours().toString().padStart(2,'0') + ':' + date.getMinutes().toString().padStart(2,'0');
+    }
+
+    function addMinutesStr(timeStr, minsToAdd) {
+    let [h, m] = timeStr.split(':').map(Number);
+    let totalMins = h * 60 + m + Math.round(minsToAdd);
+    if(totalMins < 0) totalMins += 24 * 60;
+    let finalH = Math.floor(totalMins / 60) % 24;
+    let finalM = totalMins % 60;
+    return finalH.toString().padStart(2,'0') + ':' + finalM.toString().padStart(2,'0');
+}
+
+    function addMinsToDate(d, m) {
+        return new Date(d.getTime() + m * 60000);
+    }
+function autoSetDispatchDefaults(plane, distNm) {
+    const cruiseFL = document.getElementById('cruiseFL');
+    const costIndex = document.getElementById('costIndex');
+    if (cruiseFL && cruiseFL.value === '340') {
+        if (distNm < 500) cruiseFL.value = '280';
+        else if (distNm < 1500) cruiseFL.value = '320';
+        else if (distNm < 4000) cruiseFL.value = '360';
+        else cruiseFL.value = '380';
+    }
+    if (costIndex && costIndex.value === '30') {
+        if (distNm < 500) costIndex.value = '10';
+        else if (distNm < 2000) costIndex.value = '30';
+        else costIndex.value = '50';
+    }
+}
+    function submitDispatch() {
+        const plane = flightData.aircraft;
+        flightData.crewCount = parseInt(document.getElementById('crewCount').value) || 8;
+        showLoading("签派系统计算中", "执行环境测算与油量建模...");
+        setTimeout(() => {
+            const cargo = parseFloat(document.getElementById('cargoKg').value) || 0;
+            const temp = parseFloat(document.getElementById('envTemp').value) || 15;
+            const alt = parseFloat(document.getElementById('envAlt').value) || 0;
+            const wind = parseFloat(document.getElementById('envWind').value) || 0;
+            const fPol = getFactors(document.getElementById('fuelPolicy').value);
+            let rf = 1.08;
+            if(flightData.gcDist > 2000) rf = 1.05;
+            if(flightData.gcDist > 4000) rf = 1.03;
+            if(flightData.gcDist < 300) rf = 1.12;
+            const we = Math.min(1.15, Math.max(0.85, 1 + wind / plane.speed));
+const cruiseFL = parseInt(document.getElementById('cruiseFL').value) || 340;
+const ci = parseInt(document.getElementById('costIndex').value) || 30;
+const altFuelFactor = getAltitudeFuelFactor(cruiseFL);
+const ciFactors = getCostIndexFactors(ci);
+const adjustedSpeed = plane.speed * ciFactors.speedMult;
+flightData.routeDist = flightData.gcDist * rf * we;
+flightData.flightHours = flightData.routeDist / adjustedSpeed;
+const mKg = flightData.pax * (Math.min(150, 25 + flightData.flightHours * 14) / 20);
+document.getElementById('mealKg').value = Math.floor(mKg);
+const payload = flightData.pax * 96 + cargo + mKg;
+const lf = Math.min(1.40, Math.max(0.90, 1 + payload / 25000 * plane.weightFactor));
+const ec = (1 + Math.max(0, (temp - 15) / 100)) * (1 + alt / 20000);
+let tf = plane.baseFF * flightData.flightHours * we * lf * ec * altFuelFactor * ciFactors.fuelMult;
+            if(flightData.routeDist < 500) tf *= 1.15;
+            if(flightData.routeDist > 4000) tf *= 0.95;
+            const af = tf * fPol.alt, cf = tf * fPol.cont, rv = plane.baseFF * 0.5 * lf, hf = plane.baseFF * 0.25 * lf;
+            const ex = (flightData.routeDist > 3000 ? fPol.extraBase * 1.5 : fPol.extraBase) * fPol.extraMul;
+            flightData.blockFuel = plane.taxi + tf + cf + af + rv + ex + hf;
+            const isO = flightData.blockFuel > plane.maxFuel;
+            if(isO) flightData.blockFuel = plane.maxFuel;
+                        let termHtml = `
+<div>==================================================</div>
+<div>              ✈ 航 空 放 行 单 ✈</div>
+<div>==================================================</div>
+<div>航线: ${flightData.depCode} → ${flightData.arrCode}</div>
+<div>机型: ${plane.name}</div>
+<div>航司类型: ${flightData.airlineConfig.name}</div>
+<div>策略: ${fPol.name}</div>
+<div>高度层: FL${cruiseFL} | 成本指数: CI${ci}</div>
+<div>--------------------------------------------------</div>
+<div>旅客: ${flightData.pax} 人 | 货餐: ${Math.floor(cargo + mKg)} kg</div>
+<div><span class="hl">总物理载荷: ${payload.toFixed(0)} kg</span></div>
+<div>--------------------------------------------------</div>
+<div>气象修正: ${temp}°C | ${alt}m | 风 ${wind}kt</div>
+<div>大圆距离: ${flightData.gcDist.toFixed(1)} NM</div>
+<div>航路纯飞行时间: ${flightData.flightHours.toFixed(2)} Hrs</div>
+<div>--------------------------------------------------</div>
+<div>航段燃油: ${Math.ceil(tf)} kg</div>
+<div>应急备降: ${Math.ceil(cf + af)} kg</div>
+<div>储备滑行: ${Math.ceil(rv + hf + plane.taxi + ex)} kg</div>
+<div>--------------------------------------------------</div>
+<div><span style="font-size:1.2em; color:#00ffff; font-weight:bold;">BLOCK FUEL: ${Math.ceil(flightData.blockFuel)} kg</span></div>`;
+            if(isO) termHtml += `<div><span class="warn">⚠️ 警告: 超过最大容量 ${plane.maxFuel} kg</span></div>`;
+            else termHtml += `<div>燃油指数: ${(flightData.blockFuel/plane.maxFuel*100).toFixed(1)}%</div><div><span style="color:#00ff00;">✅ 放行通过，可以起飞</span></div>`;
+            document.getElementById('releaseTerminal').innerHTML = termHtml;
+document.getElementById('releaseTerminal').style.display = 'block';
+            const dTs = document.getElementById('depTime').value || '08:00';
+            document.getElementById('tktFlt').innerText = document.getElementById('fltNum').value.toUpperCase();
+            document.getElementById('tktDep').innerText = flightData.depCode.substring(0,3);
+            document.getElementById('tktArr').innerText = flightData.arrCode.substring(0,3);
+            document.getElementById('tktDepTime').innerText = dTs;
+            document.getElementById('tktBrdTime').innerText = addMinutesStr(dTs, -40);
+            document.getElementById('tktArrTime').innerText = addMinutesStr(dTs, flightData.flightHours * 60 + 30);
+            document.getElementById('tktDate').innerText = document.getElementById('flightDate').value || '今日';
+            document.getElementById('tktPNR').innerText = Math.random().toString(36).substring(2,8).toUpperCase();
+            document.getElementById('tktSeq').innerText = Math.floor(Math.random() * 150 + 1).toString().padStart(3,'0');
+            document.getElementById('tktSeat').innerText = Math.floor(Math.random() * 30 + 1) + ['A','B','C','H','J','K'][Math.floor(Math.random() * 6)];
+            document.getElementById('tktGate').innerText = 'G' + Math.floor(Math.random() * 99 + 1);
+            const isF = document.querySelector('input[name="cabin"]:checked').value === 'first';
+            document.getElementById('tktCabin').innerText = plane.name.includes("Concorde") ? '超音速舱' : (isF ? '头等舱/FIRST' : '公务舱/BUSINESS');
+            toggleView('ticket');
+            hideLoading();
+            showPage('page-dispatch-release');
+        }, 1200);
+    }
+
+    function toggleView(t) {
+        document.getElementById('releaseTerminal').style.display = t === 'terminal' ? 'block' : 'none';
+        document.getElementById('passengerTicket').style.display = t === 'ticket' ? 'flex' : 'none';
+        document.getElementById('tabTerm').style.color = t === 'terminal' ? 'var(--primary)' : 'var(--text)';
+        document.getElementById('tabTkt').style.color = t === 'ticket' ? 'var(--primary)' : 'var(--text)';
+    }
+
+    function showLoading(title, text) {
+        document.getElementById('loadingTitle').innerText = title;
+        document.getElementById('loadingText').innerText = text;
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+
+    function hideLoading() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        window.scrollTo(0, 0);
+    }
+
+    // ============================================================
+    //  飞行阶段追踪
+    // ============================================================
+    const phaseNames = [
+        '航班初始化 (停靠登机门)',
+        '旅客登机完毕 (上客完成)',
+        '推出与开车 (Pushback)',
+        '滑行至跑道并起飞 (Takeoff)',
+        '爬升至巡航高度 (Climb)',
+        '抵达下降顶点 (TOD)',
+        '降落接地 (Landing)',
+        '靠桥与关机 (Block-in)'
+    ];
+    let currentPhaseIdx = 0;
+    let flightLogData = [];
+
+    function startFlight() {
+        flightLogData = [];
+        let realStart = new Date();
+        flightData.expectedDates = [];
+        let airTimeMins = (flightData.routeDist / flightData.aircraft.speed) * 60;
+        let climbTime = Math.min(25, Math.max(5, airTimeMins * 0.25));
+        let descentTime = Math.min(35, Math.max(10, airTimeMins * 0.3));
+        let cruiseTime = airTimeMins - climbTime - descentTime;
+        if (cruiseTime < 0) cruiseTime = 0;
+        let boardingTime = 20;
+        let taxiOut = 15;
+        let taxiIn = 10;
+        flightData.expectedDates.push(addMinsToDate(realStart, 0));
+        flightData.expectedDates.push(addMinsToDate(realStart, boardingTime));
+        flightData.expectedDates.push(addMinsToDate(realStart, boardingTime + 5));
+        flightData.expectedDates.push(addMinsToDate(realStart, boardingTime + 5 + taxiOut));
+        flightData.expectedDates.push(addMinsToDate(realStart, boardingTime + 5 + taxiOut + climbTime));
+        flightData.expectedDates.push(addMinsToDate(realStart, boardingTime + 5 + taxiOut + climbTime + cruiseTime));
+        flightData.expectedDates.push(addMinsToDate(realStart, boardingTime + 5 + taxiOut + airTimeMins));
+        flightData.expectedDates.push(addMinsToDate(realStart, boardingTime + 5 + taxiOut + airTimeMins + taxiIn));
+        const container = document.getElementById('phaseContainer');
+        container.innerHTML = '';
+        phaseNames.forEach((p, idx) => {
+            const div = document.createElement('div');
+            div.className = 'phase-item';
+            div.id = 'phase-' + idx;
+            div.innerHTML = '<div class="phase-left"><span class="phase-icon">✅</span><span>' + p + '</span></div><div class="phase-expected">预估 ' + formatTime(flightData.expectedDates[idx]) + '</div>';
+            container.appendChild(div);
+        });
+        showPage('page-flight');
+        document.getElementById('flightTitle').innerText = '航班 ' + document.getElementById('fltNum').value + ' 执行中';
+        flightLogData.push({
+            phase: phaseNames[0],
+            timeStr: formatTime(realStart),
+            diffHtml: '<span class="log-diff diff-early">(系统自动打卡)</span>',
+            diffMins: 0
+        });
+        let p0 = document.getElementById('phase-0');
+        p0.classList.add('completed');
+        currentPhaseIdx = 1;
+        updatePhaseUI();
+    }
+
+    function advancePhase() {
+        if (currentPhaseIdx < phaseNames.length) {
+            const curr = document.getElementById('phase-' + currentPhaseIdx);
+            curr.classList.remove('active');
+            curr.classList.add('completed');
+            curr.querySelector('.phase-icon').innerText = '✅';
+            let now = new Date();
+            let expected = flightData.expectedDates[currentPhaseIdx];
+            let diffMins = Math.round((now - expected) / 60000);
+            let diffHtml = "";
+            if (Math.abs(diffMins) <= 2) {
+                diffHtml = '<span class="log-diff diff-early">(准点)</span>';
+            } else if (diffMins < -2) {
+                diffHtml = '<span class="log-diff diff-early">(快 ' + Math.abs(diffMins) + ' 分)</span>';
+            } else {
+                diffHtml = '<span class="log-diff diff-late">(慢 ' + diffMins + ' 分)</span>';
+            }
+            flightLogData.push({
+                phase: phaseNames[currentPhaseIdx],
+                timeStr: formatTime(now),
+                diffHtml: diffHtml,
+                diffMins: diffMins
+            });
+            currentPhaseIdx++;
+            if (currentPhaseIdx < phaseNames.length) {
+                updatePhaseUI();
+            } else {
+                generateReport();
+            }
+        }
+    }
+
+    function updatePhaseUI() {
+        const next = document.getElementById('phase-' + currentPhaseIdx);
+        if (next) {
+            next.classList.add('active');
+            next.querySelector('.phase-icon').innerText = '⏳';
+            document.getElementById('btnNextPhase').innerText = '点击核准: [ ' + phaseNames[currentPhaseIdx] + ' ]';
+        }
+    }
+
+    // ============================================================
+    //  财务结算（含红眼成本折扣）
+    // ============================================================
+    function generateReport() {
+        showLoading("核算飞行成本", "正在计算真实航司边际利润...");
+        setTimeout(() => {
+            const revTotal = flightData.tktRev + flightData.surcharges;
+            const airlineConfig = flightData.airlineConfig;
+            const timeFactorCost = getTimeFactor(document.getElementById('depTime').value);
+            const timeCostDiscount = timeFactorCost < 0.8 ? 0.7 : 1.0;
+            const cFuel = Math.ceil(flightData.blockFuel) * 7.5 * airlineConfig.costMult * timeCostDiscount;
+            const cCrew = flightData.crewCount * (600 + flightData.flightHours * 180) * airlineConfig.costMult * timeCostDiscount;
+            let parkBase;
+if (flightData.gcDist < 500) parkBase = 1500;
+else if (flightData.gcDist < 2000) parkBase = 3000;
+else if (flightData.gcDist < 5000) parkBase = 6000;
+else parkBase = 10000;
+const cPark = (parkBase + (flightData.aircraft.maxSeats * 15)) * airlineConfig.costMult * timeCostDiscount;
+            const cATC = flightData.gcDist * 6.5 * airlineConfig.costMult * timeCostDiscount;
+            let mealCostPerPax = Math.min(150, 30 + flightData.flightHours * 12) * airlineConfig.costMult * timeCostDiscount;
+            const cCatering = flightData.pax * mealCostPerPax;
+            const cDeprec = flightData.flightHours * (flightData.aircraft.maxSeats * 55) * airlineConfig.costMult * timeCostDiscount;
+            const cGround = flightData.pax * 25 * airlineConfig.costMult * timeCostDiscount;
+            const cMaint = flightData.flightHours * 800 * airlineConfig.costMult * timeCostDiscount;
+            const costTotal = cFuel + cCrew + cPark + cATC + cCatering + cDeprec + cGround + cMaint;
+            const netProfit = revTotal - costTotal;
+            funds += netProfit;
+            localStorage.setItem('rfsAirlineFunds', funds);
+            let finalDiff = flightLogData[flightLogData.length - 1].diffMins;
+            let absDiff = Math.abs(finalDiff);
+            let h = Math.floor(absDiff / 60);
+            let m = absDiff % 60;
+            let timeStr = h > 0 ? h + ' 小时 ' + m + ' 分钟' : m + ' 分钟';
+            let statusBanner = "";
+            if (finalDiff < 0) {
+                statusBanner = '<div class="status-badge status-early">✅ 航班提前到达：总共早点 ' + timeStr + '</div>';
+            } else if (finalDiff > 0) {
+                statusBanner = '<div class="status-badge status-delayed">❌ 航班延误：总共晚点 ' + timeStr + '</div>';
+            } else {
+                statusBanner = '<div class="status-badge status-early">✅ 航班完美正点靠桥！</div>';
+            }
+            let logHtml = '<div class="flight-log"><div style="color:var(--text);font-weight:bold;margin-bottom:8px;">[ 黑匣子 ATC 节点追踪日志 ]</div>';
+            flightLogData.forEach(l => {
+                logHtml += '<div class="log-item"><span>[' + l.timeStr + '] 实际</span><span style="flex:1;text-align:right;">' + l.phase + ' ' + l.diffHtml + '</span></div>';
+            });
+            logHtml += '</div>';
+            let profitMargin = ((netProfit / revTotal) * 100).toFixed(1);
+            document.getElementById('receiptContent').innerHTML = statusBanner
+                + '<div style="color:var(--warning);margin-bottom:10px;">[' + airlineConfig.name + '] 运营结算</div>'
+                + '<div class="receipt-row"><span style="color:var(--success)">总收入 (客票+附加税款)</span><span>¥' + revTotal.toLocaleString() + '</span></div>'
+                + '<div class="receipt-row" style="margin-top:10px;color:var(--text-muted)">直接运营成本 (DOC) 明细：</div>'
+                + '<div class="receipt-row"><span>1. 航空煤油采购:</span><span style="color:var(--danger)">-¥' + cFuel.toLocaleString(undefined,{maximumFractionDigits:0}) + '</span></div>'
+                + '<div class="receipt-row"><span>2. 飞机折旧与租赁:</span><span style="color:var(--danger)">-¥' + cDeprec.toLocaleString(undefined,{maximumFractionDigits:0}) + '</span></div>'
+                + '<div class="receipt-row"><span>3. 机场起落停机费:</span><span style="color:var(--danger)">-¥' + cPark.toLocaleString(undefined,{maximumFractionDigits:0}) + '</span></div>'
+                + '<div class="receipt-row"><span>4. 航路空管飞越费:</span><span style="color:var(--danger)">-¥' + cATC.toLocaleString(undefined,{maximumFractionDigits:0}) + '</span></div>'
+                + '<div class="receipt-row"><span>5. 旅客餐食服务费:</span><span style="color:var(--danger)">-¥' + cCatering.toLocaleString(undefined,{maximumFractionDigits:0}) + '</span></div>'
+                + '<div class="receipt-row"><span>6. 机组出勤小时费:</span><span style="color:var(--danger)">-¥' + cCrew.toLocaleString(undefined,{maximumFractionDigits:0}) + '</span></div>'
+                + '<div class="receipt-row"><span>7. 地面服务费:</span><span style="color:var(--danger)">-¥' + cGround.toLocaleString(undefined,{maximumFractionDigits:0}) + '</span></div>'
+                + '<div class="receipt-row"><span>8. 维修储备金:</span><span style="color:var(--danger)">-¥' + cMaint.toLocaleString(undefined,{maximumFractionDigits:0}) + '</span></div>'
+                + '<div class="receipt-total"><span>本航段净利/亏损 (利润率 ' + profitMargin + '%)</span><span style="color:' + (netProfit>=0?'var(--success)':'var(--danger)') + '">' + (netProfit>=0?'+':'') + '¥' + netProfit.toLocaleString(undefined,{maximumFractionDigits:0}) + '</span></div>'
+                + logHtml;
+            hideLoading();
+            showPage('page-report');
+        }, 1500);
+    }
+
+    function finishAndReset() {
+        updateFundsUI();
+        showPage('page-plan');
+    }
+
+    function resetFunds() {
+        if (confirm("确定要申请破产重组，将资金强制重置为 100,000 吗？")) {
+            funds = 100000;
+            localStorage.setItem('rfsAirlineFunds', funds);
+            updateFundsUI();
+            alert("破产重组成功！初始资金已重置为 100,000 块。");
+        }
+    }
+    // ============================================================
+    //  密钥验证系统
+    // ============================================================
+        function xorDecode(b64) {
+        const decoded = atob(b64);
+        if (decoded.startsWith('forever_')) return { type: 'forever' };
+        if (decoded.startsWith('day_')) return { type: 'day' };
+        return null;
+    }
+
+    function verifyKey(inputKey) {
+        const dotPos = inputKey.lastIndexOf('.');
+        if (dotPos < 0) return false;
+        const result = xorDecode(inputKey.substring(0, dotPos));
+        if (!result) return false;
+        const existing = localStorage.getItem('rfsLicence');
+        if (existing) {
+            try {
+                const data = JSON.parse(existing);
+                if (data.key === inputKey) return true;
+            } catch(e) {}
+        }
+        if (result.type === 'forever') {
+            localStorage.setItem('rfsLicence', JSON.stringify({ key: inputKey, type: 'forever', time: Date.now() }));
+            return true;
+        }
+        if (result.type === 'day') {
+            localStorage.setItem('rfsLicence', JSON.stringify({ key: inputKey, type: 'day', time: Date.now() }));
+            return true;
+        }
+        return false;
+    }
+
+    function checkLicence() {
+        const saved = localStorage.getItem('rfsLicence');
+        if (!saved) return false;
+        try {
+            const data = JSON.parse(saved);
+            if (data.type === 'forever') return true;
+            if (data.type === 'day') {
+                if ((Date.now() - data.time) / 1000 < 86400) return true;
+                localStorage.removeItem('rfsLicence');
+                return false;
+            }
+        } catch(e) { return false; }
+        return false;
+    }
+
+    function activateKey() {
+        const input = document.getElementById('licenseInput').value.trim();
+        const btn = document.getElementById('keyBtn');
+        if (!input) return;
+        
+        btn.innerText = '处理中...';
+        btn.disabled = true;
+        
+        setTimeout(() => {
+            if (verifyKey(input)) {
+                document.getElementById('keyModal').style.display = 'none';
+                const saved = JSON.parse(localStorage.getItem('rfsLicence'));
+                let expireText = '永久有效';
+                if (saved && saved.type === 'day') {
+                    const expireDate = new Date(saved.time + 86400000);
+                    expireText = expireDate.getFullYear() + '年' + (expireDate.getMonth()+1) + '月' + expireDate.getDate() + '日 ' + 
+                               expireDate.getHours().toString().padStart(2,'0') + ':' + expireDate.getMinutes().toString().padStart(2,'0');
+                }
+                document.getElementById('successExpire').innerText = expireText;
+                document.getElementById('successModal').style.display = 'flex';
+                setTimeout(() => {
+                    document.getElementById('successModal').style.display = 'none';
+                }, 2500);
+            } else {
+                alert('❌ 密钥无效或已过期');
+                btn.innerText = '验证密钥';
+                btn.disabled = false;
+            }
+        }, 800);
+    }
+
+    if (!checkLicence()) {
+        document.getElementById('keyModal').style.display = 'flex';
+        history.pushState(null, '', location.href);
+        window.addEventListener('popstate', function() {
+            if (!checkLicence()) {
+                document.getElementById('keyModal').style.display = 'flex';
+                history.pushState(null, '', location.href);
+            }
+        });
+        setInterval(function() {
+            if (!checkLicence()) {
+                document.getElementById('keyModal').style.display = 'flex';
+                history.pushState(null, '', location.href);
+            }
+        }, 10000);
+    }
+</script>
+</body>
+</html>
