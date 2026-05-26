@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Airline Operations System V26Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
+    <style>
+        * { box-sizing: border-box; } 
+        :root {
+            --bg: #0f172a; --panel: #1e293b; --primary: #3b82f6; --primary-hover: #2563eb;
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444; 
+            --text: #f8fafc; --text-muted: #94a3b8; --border: #334155; 
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 0; }
+        .app-container { max-width: 600px; margin: 0 auto; padding: 15px; padding-bottom: 40px; }
+        .header { text-align: center; padding: 15px 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 1.2em; color: var(--text-muted); font-weight: normal; }
+        .funds { font-size: 2.2em; font-weight: bold; color: var(--success); margin-top: 5px; text-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+        .funds.loss { color: var(--danger); text-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+        
+        .page { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .card { background: var(--panel); border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); }
+        .card-title { margin-top: 0; font-size: 1.1em; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; color: var(--primary); }
+        
+        .form-row { display: flex; gap: 10px; margin-bottom: 12px; width: 100%; }
+        .form-group { flex: 1; display: flex; flex-direction: column; width: 100%; position: relative; }
+        @media (max-width: 500px) { .form-row { flex-direction: column; gap: 12px; } .radio-group { flex-direction: column; } }
+        label { font-size: 0.85em; color: var(--text-muted); margin-bottom: 5px; }
+        input, select { background: var(--bg); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; font-size: 1em; outline: none; width: 100%; transition: border 0.2s;}
+        input:focus, select:focus { border-color: var(--primary); }
+        input[type="file"] { padding: 10px; border: 1px dashed var(--border); background: rgba(255,255,255,0.02); }
+        input[type="date"] { color-scheme: dark; }
+        .form-error { color: var(--danger); font-size: 0.75em; margin-top: 3px; display: none; }
+        
+        .radio-group { display: flex; gap: 10px; width: 100%; flex-wrap: wrap; }
+        .radio-group label { flex: 1; min-width: 70px; background: var(--bg); padding: 12px 8px; text-align: center; border-radius: 8px; border: 1px solid var(--border); margin:0; color: white; cursor: pointer; font-size: 0.85em; }
+        .radio-group input { display: none; }
+        .radio-group input:checked + span { color: var(--primary); font-weight: bold; }
+        .radio-group label:has(input:checked) { border-color: var(--primary); background: rgba(59, 130, 246, 0.1); }
+        button.btn-main { width: 100%; background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-size: 1.1em; font-weight: bold; margin-top: 10px; cursor: pointer; transition: 0.2s; }
+        button.btn-main:active { transform: scale(0.98); }
+        button.btn-main:disabled { background: var(--border); cursor: not-allowed; opacity: 0.6; }
+        
+        .terminal { background: #0c0c0c; color: #00ff00; font-family: var(--font-mono); padding: 15px; border-radius: 8px; font-size: 0.85em; line-height: 1.6; margin-bottom: 15px; overflow-x: auto; border: 1px solid #333; display: none; }
+        .terminal .hl { color: #ffff00; }
+        .terminal .warn { color: #ff5555; font-weight: bold;}
+        .ticket-view { background: #ffffff; color: #1e293b; border-radius: 12px; margin-bottom: 15px; position: relative; box-shadow: 0 10px 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;}
+        .ticket-main { padding: 20px; border-bottom: 2px dashed #cbd5e1; position: relative;}
+        .ticket-stub { padding: 15px 20px; background: #f8fafc; border-top: none; }
+        .ticket-main::before, .ticket-main::after { content: ''; position: absolute; bottom: -10px; width: 20px; height: 20px; background: var(--bg); border-radius: 50%; z-index: 2;}
+        .ticket-main::before { left: -10px; } .ticket-main::after { right: -10px; }
+        
+        .tkt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .tkt-airline { font-weight: 900; font-size: 1.1em; color: #0f172a; letter-spacing: 1px;}
+        .tkt-class { background: #0f172a; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; font-weight: bold;}
+        
+        .tkt-route { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .tkt-city { text-align: center; }
+        .tkt-code { font-size: 2.5em; font-weight: 900; color: #2563eb; line-height: 1;}
+        .tkt-icon { font-size: 1.5em; color: #94a3b8; transform: rotate(90deg); }
+        
+        .tkt-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 0.85em; margin-bottom: 15px;}
+        .tkt-lbl { color: #64748b; font-size: 0.75em; text-transform: uppercase; margin-bottom: 2px; line-height: 1.1;}
+        .tkt-val { font-weight: bold; font-size: 1.1em; color: #0f172a;}
+        .tkt-highlight { color: #dc2626; font-size: 1.3em; }
+        
+        .tkt-barcode { height: 40px; margin-top: 10px; background: repeating-linear-gradient(90deg, #0f172a, #0f172a 2px, #fff 2px, #fff 4px, #0f172a 4px, #0f172a 5px, #fff 5px, #fff 8px, #0f172a 8px, #0f172a 12px, #fff 12px, #fff 14px); opacity: 0.8;}
+        .flight-log { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 0.85em;}
+        .log-item { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--text-muted); align-items: flex-start;}
+        .log-item span:first-child { color: var(--text); font-weight: bold; width: 140px;}
+        .log-diff { font-size: 0.9em; margin-left: 5px; }
+        .diff-early { color: var(--success); }
+        .diff-late { color: var(--danger); }
+        
+        .status-badge { display: inline-block; padding: 5px 10px; border-radius: 4px; font-weight: bold; font-size: 0.9em; margin-bottom: 15px; }
+        .status-early { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+        .status-delayed { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+        .flight-progress { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .phase-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); opacity: 0.5; transition: all 0.3s; }
+        .phase-item.active { opacity: 1; border-color: var(--warning); background: rgba(245, 158, 11, 0.1); }
+        .phase-item.completed { opacity: 1; border-color: var(--success); }
+        .phase-left { display: flex; align-items: center; }
+        .phase-icon { margin-right: 12px; font-size: 1.2em; }
+        .phase-expected { font-family: var(--font-mono); font-size: 0.85em; color: var(--primary); }
+        
+        #loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        .spinner { border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed var(--border); padding-bottom: 4px; font-size: 0.9em;}
+        .receipt-total { display: flex; justify-content: space-between; margin-top: 15px; font-size: 1.2em; font-weight: bold; padding-top: 10px; border-top: 2px solid var(--border); }
+        .ac-badge { display: inline-block; background: rgba(16, 185, 129, 0.2); color: var(--success); padding: 4px 8px; border-radius: 4px; font-size: 0.8em; margin-top: 5px; font-weight: bold; border: 1px solid var(--success);}
+        .ai-badge { position: absolute; top: 38px; right: 10px; font-size: 0.7em; background: var(--primary); padding: 2px 5px; border-radius: 4px; pointer-events: none;}
+        .airline-type-info { font-size: 0.8em; color: var(--warning); margin-top: 4px; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header">
+        <h1>Airline Financial Ledger (USD)</h1>
+        <div class="funds" id="ui-funds">$0.00</div>
+        <div style="font-size:0.85em;color:var(--text-muted);margin-top:8px;cursor:pointer;text-decoration:underline;" onclick="AirlineSystem.resetFunds()">[ Reset Funds: Back to 10,000 USD ]</div>
+    </div>
+
+    <div id="page-plan" class="page active">
+        <div class="card">
+            <h2 class="card-title">1. Database Loading</h2>
+            <div class="form-row"><div class="form-group"><label>Airport Database</label><input type="file" id="airportFile"></div></div>
+            <div class="form-row"><div class="form-group"><label>Aircraft Database</label><input type="file" id="aircraftFile"></div></div>
+            <button class="btn-main" style="padding:12px;font-size:1em;" onclick="AirlineSystem.bootSystem()">⚡ Verify & Load Database</button>
+            <div id="dbStatus" style="text-align:center;margin-top:10px;color:var(--text-muted);font-size:0.9em;"> Auto-download from GitHub if no local file</div>
+        </div>
+
+        <div id="flightSetupArea" style="display:none;">
+            <div class="card">
+                <h2 class="card-title">2. Flight Scheduling & Ticketing</h2>
+                
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label>✈️ Airline Type</label>
+                    <div class="radio-group" id="airlineTypeGroup">
+                        <label><input type="radio" name="airlineType" value="budget" onchange="AirlineSystem.updateAirlineType()"><span>💰 Budget</span></label>
+                        <label><input type="radio" name="airlineType" value="standard" checked onchange="AirlineSystem.updateAirlineType()"><span>✈️ Standard</span></label>
+                        <label><input type="radio" name="airlineType" value="fullservice" onchange="AirlineSystem.updateAirlineType()"><span>👑 Full Service</span></label>
+                    </div>
+                    <div class="airline-type-info" id="airlineTypeInfo">Standard Airline: Moderate price & cost</div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group"><label>Flight Number</label><input type="text" id="fltNum" value="CX880" oninput="this.value = this.value.toUpperCase()"></div>
+                    <div class="form-group"><label>Flight Date</label><input type="date" id="flightDate" onchange="AirlineSystem.updateDateInfo()"></div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group"><label>Scheduled Departure</label><input type="time" id="depTime" value="08:00" onchange="AirlineSystem.updateTimeInfo()"></div>
+                </div>
+                
+                <div style="font-size:0.8em;margin-bottom:8px;">
+                    <span id="dateInfo" style="color:var(--success);"></span>
+                    <span id="timeInfo" style="color:var(--warning);margin-left:10px;"></span>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group"><label>Dep Airport (ICAO/IATA)</label><input type="text" id="depApt" oninput="AirlineSystem.calcRoute()" placeholder="e.g. ZGHA"><small id="depName" style="color:var(--success);font-weight:bold;"></small></div>
+                    <div class="form-group"><label>Arr Airport (ICAO/IATA)</label><input type="text" id="arrApt" oninput="AirlineSystem.calcRoute()" placeholder="e.g. ZSNJ"><small id="arrName" style="color:var(--success);font-weight:bold;"></small></div>
+                </div>
+                
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Aircraft Type</label>
+                    <select id="acSelect" onchange="AirlineSystem.updateAcInfo()"></select>
+                    <div class="ac-badge" id="acMaxSeats">Max Seats: -- Seats</div>
+                </div>
+                
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Cabin Layout</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="cabin" value="first" checked onchange="AirlineSystem.updateUI()"><span>First + Economy</span></label>
+                        <label><input type="radio" name="cabin" value="biz" onchange="AirlineSystem.updateUI()"><span>Business + Economy</span></label>
+                    </div>
+                </div>
+                
+                <div class="form-row" style="margin-top:10px;">
+                    <div class="form-group"><label id="lblPremiumSeat">Premium Seats</label><input type="number" id="capPremium" value="20"></div>
+                    <div class="form-group"><label>Economy Seats</label><input type="number" id="capEco" value="180"></div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group"><label id="lblPremiumPrice">Premium Price (USD)</label><input type="number" id="pricePremium" value="0"><span class="ai-badge">AI</span></div>
+                    <div class="form-group"><label>Economy Price (USD)</label><input type="number" id="priceEco" value="0"><span class="ai-badge">AI</span></div>
+                </div>
+                
+                <div class="form-group" style="margin-top:10px;">
+                    <label>🎫 Discount (0.5~9.5)</label>
+                    <input type="number" id="discountInput" value="10" min="0.5" max="9.5" step="0.1" oninput="AirlineSystem.updateDiscount()" placeholder="10=No Discount">
+                    <div style="font-size:0.8em;color:var(--success);margin-top:4px;" id="discountInfo">10 = No Discount</div>
+                </div>
+                
+                <button class="btn-main" onclick="AirlineSystem.sellTickets()">Submit & Open Sales</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-dispatch-input" class="page">
+        <div class="card">
+            <h2 class="card-title">3. Sales Result & AI Dispatch</h2>
+            <div id="salesReport" style="background:#1e293b;padding:15px;border-left:4px solid var(--success);margin-bottom:15px;line-height:1.6;"></div>
+            
+            <div id="secondDiscountArea" style="display:none;background:#1e293b;padding:12px;border-radius:8px;margin-bottom:15px;border:1px dashed var(--warning);">
+                <label style="color:var(--warning);">🎫 Secondary Discount</label>
+                <div class="form-row"><div class="form-group"><label>Discount (0.5~9.5)</label><input type="number" id="discountInput2" value="10" min="0.5" max="9.5" step="0.1" oninput="AirlineSystem.previewSecondDiscount()" placeholder="10=No Discount"></div></div>
+                <div id="secondDiscountPreview" style="font-size:0.8em;color:var(--success);margin-top:4px;"></div>
+                <button class="btn-main" style="background:var(--warning);margin-top:8px;padding:10px;font-size:0.9em;" onclick="AirlineSystem.applySecondDiscount()">Apply Discount & Resell</button>
+            </div>
+            
+            <div style="color:var(--warning);font-size:0.85em;margin-bottom:15px;">Auto-calculated by AI based on distance, date & demand</div>
+            
+            <div class="form-row">
+                <div class="form-group"><label>Crew Count</label><input type="number" id="crewCount" value="0"></div>
+                <div class="form-group"><label>Cargo Weight (kg)</label><input type="number" id="cargoKg" value="0"></div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group"><label>Dest Temp (°C)</label><input type="number" id="envTemp" value="15"></div>
+                <div class="form-group"><label>Dest Elevation (m)</label><input type="number" id="envAlt" value="50"></div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group"><label>Wind Speed (kt)</label><input type="number" id="envWind" value="0"></div>
+                <div class="form-group"><label>Catering Weight (kg)</label><input type="number" id="mealKg" value="0"></div>
+            </div>
+           
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Cruise FL</label>
+                    <select id="cruiseFL">
+                        <option value="280">FL280 (8500m)</option>
+                        <option value="300">FL300 (9100m)</option>
+                        <option value="320">FL320 (9800m)</option>
+                        <option value="340" selected>FL340 (10400m)</option>
+                        <option value="360">FL360 (11000m)</option>
+                        <option value="380">FL380 (11600m)</option>
+                        <option value="400">FL400 (12200m)</option>
+                        <option value="430">FL430 (13100m)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cost Index (CI 0-999)</label>
+                    <input type="number" id="costIndex" value="30" min="0" max="999" placeholder="0=Save Fuel 999=Fast">
+                </div>
+            </div>
+            
+            <div class="form-group"><label>Fuel Safety Policy</label><select id="fuelPolicy"><option value="1">Compact</option><option value="2" selected>Standard</option><option value="3">High Redundancy</option></select></div>
+            <button class="btn-main" style="background:var(--success);" onclick="AirlineSystem.submitDispatch()">Confirm Load & Generate Release</button>
+        </div>
+    </div>
+
+    <div id="page-dispatch-release" class="page">
+        <div class="card" style="padding-top:10px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:15px;border-bottom:1px solid var(--border);padding-bottom:10px;">
+                <button onclick="AirlineSystem.toggleView('ticket')" id="tabTkt" style="flex:1;background:none;border:none;color:var(--primary);font-size:1.1em;font-weight:bold;cursor:pointer;">🎫 Boarding Pass</button>
+                <button onclick="AirlineSystem.toggleView('terminal')" id="tabTerm" style="flex:1;background:none;border:none;color:var(--text);font-size:1.1em;font-weight:bold;cursor:pointer;">💻 Release Document</button>
+            </div>
+            
+            <div class="ticket-view" id="passengerTicket">
+                <div class="ticket-main">
+                    <div class="tkt-header"><div class="tkt-airline">SIMULATED AIRLINES</div><div class="tkt-class" id="tktCabin">ECONOMY</div></div>
+                    <div class="tkt-route"><div class="tkt-city"><div class="tkt-code" id="tktDep">HKG</div></div><div class="tkt-icon">✈</div><div class="tkt-city"><div class="tkt-code" id="tktArr">LAX</div></div></div>
+                    <div class="tkt-grid">
+                        <div><div class="tkt-lbl">NAME</div><div class="tkt-val">VIP</div></div>
+                        <div><div class="tkt-lbl">FLIGHT</div><div class="tkt-val" id="tktFlt">CX880</div></div>
+                        <div><div class="tkt-lbl">DATE</div><div class="tkt-val" id="tktDate">TODAY</div></div>
+                        <div><div class="tkt-lbl">GATE</div><div class="tkt-val" id="tktGate">G23</div></div>
+                        <div><div class="tkt-lbl">BOARDING</div><div class="tkt-val tkt-highlight" id="tktBrdTime">07:20</div></div>
+                        <div><div class="tkt-lbl">SEAT</div><div class="tkt-val tkt-highlight" id="tktSeat">12A</div></div>
+                    </div>
+                    <div class="tkt-grid" style="margin-bottom:0;">
+                        <div><div class="tkt-lbl">DEPARTURE</div><div class="tkt-val" id="tktDepTime">08:00</div></div>
+                        <div><div class="tkt-lbl">ARRIVAL</div><div class="tkt-val" id="tktArrTime">20:30</div></div>
+                        <div><div class="tkt-lbl">PNR REF</div><div class="tkt-val" id="tktPNR" style="color:#2563eb;">A8B9C2</div></div>
+                    </div>
+                </div>
+                <div class="ticket-stub"><div style="display:flex;justify-content:space-between;align-items:center;"><div><div class="tkt-lbl">SEQ NO.</div><div class="tkt-val" id="tktSeq">045</div></div><div class="tkt-barcode"></div></div></div>
+            </div>
+            
+            <div class="terminal" id="releaseTerminal"></div>
+            <button class="btn-main" style="background:var(--success);" onclick="AirlineSystem.startFlight()">Start Flight Simulation</button>
+        </div>
+    </div>
+
+    <div id="page-flight" class="page">
+        <div class="card">
+            <h2 class="card-title" id="flightTitle">Flight in Progress</h2>
+            <div style="color:var(--warning);font-size:0.9em;margin-bottom:15px;line-height:1.5;">
+                ✈️ System uses your real local time as gate time.<br>
+                Approve each step manually based on RFS simulator progress!
+            </div>
+            <div class="flight-progress" id="phaseContainer"></div>
+            <button id="btnNextPhase" class="btn-main" onclick="AirlineSystem.advancePhase()">Loading...</button>
+        </div>
+    </div>
+
+    <div id="page-report" class="page">
+        <div class="card">
+            <h2 class="card-title">Final Financial Report</h2>
+            <div id="receiptContent"></div>
+            <button class="btn-main" onclick="AirlineSystem.finishAndReset()">Confirm & Return to Main</button>
+        </div>
+    </div>
+</div>
+
+<div id="keyModal" data-prevent-back="true" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); z-index:999; flex-direction:column; justify-content:center; align-items:center;">
+    <div style="background:var(--panel); padding:25px; border-radius:12px; text-align:center; max-width:350px; width:90%;">
+        <h3 style="color:var(--text); margin-bottom:15px;">🔑 Activate License</h3>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <div id="licenseBoxes" style="width:100%;">
+    <input type="text" id="singleLicenseInput" maxlength="29" value="" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" style="width:100%;text-align:center;font-size:1em;padding:12px;background:var(--bg);border:1px solid var(--border);color:white;border-radius:8px;letter-spacing:2px;font-family:monospace;">
+</div>
+    <button id="pasteBtn" style="background:var(--primary);color:white;border:none;padding:10px 12px;border-radius:6px;font-size:0.85em;cursor:pointer;white-space:nowrap;">📋 Paste</button>
+</div>
+        <button id="keyBtn" class="btn-main" onclick="AirlineSystem.activateKey()" style="margin-top:0;">Confirm</button>
+    </div>
+</div>
+
+<div id="customAlert" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:1002; flex-direction:column; justify-content:center; align-items:center;">
+    <div style="background:var(--panel); padding:25px; border-radius:12px; text-align:center; max-width:300px; width:90%;">
+        <div style="font-size:2em;" id="alertIcon">⚠️</div>
+        <p style="color:var(--text); margin:15px 0;" id="alertMessage">Message</p>
+        <p style="color:var(--text-muted); font-size:0.75em; margin-top:10px;">If a license is required, please contact us on WhatsApp: 5529 9182.</p>
+        <button id="alertOkBtn" class="btn-main" style="margin-top:5px; padding:10px;">OK</button>
+       
+    </div>
+    </div>
+</div>
+
+<div id="customConfirm" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:1002; flex-direction:column; justify-content:center; align-items:center;">
+    <div style="background:var(--panel); padding:25px; border-radius:12px; text-align:center; max-width:300px; width:90%;">
+        <div style="font-size:2em;">❓</div>
+        <p style="color:var(--text); margin:15px 0;" id="confirmMessage">Message</p>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button id="confirmYesBtn" class="btn-main" style="flex:1; background:var(--success); padding:10px;">YES</button>
+            <button id="confirmNoBtn" class="btn-main" style="flex:1; background:var(--danger); padding:10px;">NO</button>
+        </div>
+    </div>
+</div>
+
+<div id="successModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:1001; flex-direction:column; justify-content:center; align-items:center;">
+    <div style="background:var(--panel); padding:25px; border-radius:12px; text-align:center; max-width:300px; width:90%;">
+        <div style="font-size:3em;">✅</div>
+        <h3 style="color:var(--success); margin:10px 0;">Activation Success</h3>
+        <p style="color:var(--text-muted);">Expiry Time</p>
+        <p style="color:var(--text); font-weight:bold;" id="successExpire"></p>
+    </div>
+</div>
+
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <h3 style="color:white;margin:0;" id="loadingTitle">AI Processing</h3>
+    <p style="color:var(--text-muted);font-size:0.9em;" id="loadingText">Loading...</p>
+</div>
+
+<script>
+const AirlineSystem = (function() {
+    const CONSTANTS = {
+        ECO_PRICE_SHORT: 0.70,
+        ECO_PRICE_MEDIUM: 0.65,
+        ECO_PRICE_LONG: 0.55,
+        ECO_PRICE_ULTRA: 0.50,
+        ECO_PRICE_INTER: 0.45,
+        
+        SPRING_FESTIVAL_PRICE: 2.5,
+        NATIONAL_DAY_PRICE: 2.5,
+        LABOR_DAY_PRICE: 1.8,
+        SUMMER_VACATION_PRICE: 1.4,
+        EASTER_PRICE: 3.5,
+        CHRISTMAS_PRICE: 3.5,
+        WINTER_VACATION_PRICE: 1.8,
+        
+        SPRING_FESTIVAL_LF: 1.8,
+        NATIONAL_DAY_LF: 1.8,
+        LABOR_DAY_LF: 1.5,
+        SUMMER_VACATION_LF: 1.35,
+        EASTER_LF: 2.2,
+        CHRISTMAS_LF: 2.5,
+        WINTER_VACATION_LF: 1.25,
+        WEEKEND_LF: 1.2,
+        
+        RED_EYE_LF: 0.55,
+        EARLY_MORNING_LF: 0.70,
+        MORNING_LF: 0.90,
+        GOLDEN_HOUR_LF: 1.15,
+        AFTERNOON_LF: 1.05,
+        EVENING_LF: 0.80,
+        
+        FUEL_PRICE_PER_KG: 7.5,
+        CREW_BASE_SALARY: 600,
+        CREW_HOURLY_RATE: 180,
+        ATC_FEE_PER_NM: 6.5,
+        GROUND_SERVICE_PER_PAX: 25,
+        MAINTENANCE_PER_HOUR: 800,
+        
+        AES_KEY: CryptoJS.enc.Utf8.parse('RFS_AIRLINE_26PRO_KEY_2026'),
+        AES_IV: CryptoJS.enc.Utf8.parse('RFS_AIRLINE_IV_2026')
+    };
+
+    const DOM = {
+        uiFunds: document.getElementById('ui-funds'),
+        airportFile: document.getElementById('airportFile'),
+        aircraftFile: document.getElementById('aircraftFile'),
+        dbStatus: document.getElementById('dbStatus'),
+        flightSetupArea: document.getElementById('flightSetupArea'),
+        airlineTypeInfo: document.getElementById('airlineTypeInfo'),
+        fltNum: document.getElementById('fltNum'),
+        flightDate: document.getElementById('flightDate'),
+        depTime: document.getElementById('depTime'),
+        dateInfo: document.getElementById('dateInfo'),
+        timeInfo: document.getElementById('timeInfo'),
+        depApt: document.getElementById('depApt'),
+        arrApt: document.getElementById('arrApt'),
+        depName: document.getElementById('depName'),
+        arrName: document.getElementById('arrName'),
+        acSelect: document.getElementById('acSelect'),
+        acMaxSeats: document.getElementById('acMaxSeats'),
+        lblPremiumSeat: document.getElementById('lblPremiumSeat'),
+        lblPremiumPrice: document.getElementById('lblPremiumPrice'),
+        capPremium: document.getElementById('capPremium'),
+        capEco: document.getElementById('capEco'),
+        pricePremium: document.getElementById('pricePremium'),
+        priceEco: document.getElementById('priceEco'),
+        discountInput: document.getElementById('discountInput'),
+        discountInfo: document.getElementById('discountInfo'),
+        salesReport: document.getElementById('salesReport'),
+        secondDiscountArea: document.getElementById('secondDiscountArea'),
+        discountInput2: document.getElementById('discountInput2'),
+        secondDiscountPreview: document.getElementById('secondDiscountPreview'),
+        crewCount: document.getElementById('crewCount'),
+        cargoKg: document.getElementById('cargoKg'),
+        envTemp: document.getElementById('envTemp'),
+        envAlt: document.getElementById('envAlt'),
+        envWind: document.getElementById('envWind'),
+        mealKg: document.getElementById('mealKg'),
+        cruiseFL: document.getElementById('cruiseFL'),
+        costIndex: document.getElementById('costIndex'),
+        fuelPolicy: document.getElementById('fuelPolicy'),
+        tabTkt: document.getElementById('tabTkt'),
+        tabTerm: document.getElementById('tabTerm'),
+        passengerTicket: document.getElementById('passengerTicket'),
+        releaseTerminal: document.getElementById('releaseTerminal'),
+        tktCabin: document.getElementById('tktCabin'),
+        tktDep: document.getElementById('tktDep'),
+        tktArr: document.getElementById('tktArr'),
+        tktFlt: document.getElementById('tktFlt'),
+        tktDate: document.getElementById('tktDate'),
+        tktGate: document.getElementById('tktGate'),
+        tktBrdTime: document.getElementById('tktBrdTime'),
+        tktSeat: document.getElementById('tktSeat'),
+        tktDepTime: document.getElementById('tktDepTime'),
+        tktArrTime: document.getElementById('tktArrTime'),
+        tktPNR: document.getElementById('tktPNR'),
+        tktSeq: document.getElementById('tktSeq'),
+        flightTitle: document.getElementById('flightTitle'),
+        phaseContainer: document.getElementById('phaseContainer'),
+        btnNextPhase: document.getElementById('btnNextPhase'),
+        receiptContent: document.getElementById('receiptContent'),
+        keyModal: document.getElementById('keyModal'),
+        licenseInput: document.getElementById('licenseInput'),
+        keyBtn: document.getElementById('keyBtn'),
+        successModal: document.getElementById('successModal'),
+        successExpire: document.getElementById('successExpire'),
+        loadingOverlay: document.getElementById('loadingOverlay'),
+        loadingTitle: document.getElementById('loadingTitle'),
+        loadingText: document.getElementById('loadingText')
+    };
+
+    const state = {
+        funds: 10000,
+        airports: [],
+        aircrafts: [],
+        airportCoords: {},
+        airportNames: {},
+        flightData: {},
+        currentPhaseIdx: 0,
+        flightLogData: [],
+        phaseNames: [
+            'Flight Initialization (At Gate)',
+            'Boarding Complete',
+            'Pushback & Engine Start',
+            'Taxi & Takeoff',
+            'Climb to Cruise Altitude',
+            'Top of Descent (TOD)',
+            'Landing Touchdown',
+            'Gate Arrival & Shutdown'
+        ],
+        lang: false
+    };
+
+    const Utils = {
+        Time: {
+            format(date, fmt='HH:mm') {
+                const pad = n => n.toString().padStart(2, '0');
+                if (fmt === 'HH:mm') {
+                    return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+                }
+                return date.toISOString();
+            },
+            addMinutes(date, mins) {
+                return new Date(date.getTime() + mins * 60000);
+            },
+            addMinutesStr(timeStr, minsToAdd) {
+                let [h, m] = timeStr.split(':').map(Number);
+                let totalMins = h * 60 + m + Math.round(minsToAdd);
+                if (totalMins < 0) totalMins += 24 * 60;
+                let finalH = Math.floor(totalMins / 60) % 24;
+                let finalM = totalMins % 60;
+                return `${finalH.toString().padStart(2,'0')}:${finalM.toString().padStart(2,'0')}`;
+            },
+            diffMinutes(a, b) {
+                return Math.round((a - b) / 60000);
+            }
+        },
+        AES: {
+            encrypt(text) {
+                return CryptoJS.AES.encrypt(text, CONSTANTS.AES_KEY, {
+                    iv: CONSTANTS.AES_IV,
+                    mode: CryptoJS.mode.CBC,
+                    padding: CryptoJS.pad.Pkcs7
+                }).toString();
+            },
+            decrypt(ciphertext) {
+                try {
+                    const bytes = CryptoJS.AES.decrypt(ciphertext, CONSTANTS.AES_KEY, {
+                        iv: CONSTANTS.AES_IV,
+                        mode: CryptoJS.mode.CBC,
+                        padding: CryptoJS.pad.Pkcs7
+                    });
+                    return bytes.toString(CryptoJS.enc.Utf8);
+                } catch (e) {
+                    return null;
+                }
+            }
+        }
+    };
+
+    const PricingEngine = {
+        calcBaseEcoPrice(distKm) {
+            if (distKm <= 800) return Math.floor(distKm * CONSTANTS.ECO_PRICE_SHORT);
+            else if (distKm <= 2000) return Math.floor(distKm * CONSTANTS.ECO_PRICE_MEDIUM);
+            else if (distKm <= 5000) return Math.floor(distKm * CONSTANTS.ECO_PRICE_LONG);
+            else if (distKm <= 10000) return Math.floor(distKm * CONSTANTS.ECO_PRICE_ULTRA);
+            else return Math.floor(distKm * CONSTANTS.ECO_PRICE_INTER);
+        },
+        calcPrmMultiplier(distKm, isFirst) {
+            if (isFirst) return 4.5 - 1.0 * Math.min(1, distKm / 12000);
+            else return 2.8 - 0.6 * Math.min(1, distKm / 12000);
+        },
+        getHolidayPriceMultiplier(dateStr) {
+            if (!dateStr) return 1.0;
+            const d = new Date(dateStr + 'T00:00:00');
+            const m = d.getMonth() + 1, day = d.getDate();
+            if ((m === 1 && day >= 15) || (m === 2 && day <= 15)) return CONSTANTS.SPRING_FESTIVAL_PRICE;
+            if ((m === 9 && day >= 28) || (m === 10 && day <= 8)) return CONSTANTS.NATIONAL_DAY_PRICE;
+            if ((m === 4 && day >= 28) || (m === 5 && day <= 5)) return CONSTANTS.LABOR_DAY_PRICE;
+            if (m === 7 || m === 8) return CONSTANTS.SUMMER_VACATION_PRICE;
+            if ((m === 3 && day >= 25) || (m === 4 && day <= 5)) return CONSTANTS.EASTER_PRICE;
+            if (m === 12 && day >= 20 && day <= 31) return CONSTANTS.CHRISTMAS_PRICE;
+            if (m === 1 || m === 2) return CONSTANTS.WINTER_VACATION_PRICE;
+            return 1.0;
+        },
+        getHolidayFactor(dateStr) {
+            if (!dateStr) return 1.0;
+            const d = new Date(dateStr + 'T00:00:00');
+            const m = d.getMonth() + 1, day = d.getDate(), w = d.getDay();
+            if ((m === 1 && day >= 15) || (m === 2 && day <= 15)) return CONSTANTS.SPRING_FESTIVAL_LF;
+            if ((m === 9 && day >= 28) || (m === 10 && day <= 8)) return CONSTANTS.NATIONAL_DAY_LF;
+            if ((m === 4 && day >= 28) || (m === 5 && day <= 5)) return CONSTANTS.LABOR_DAY_LF;
+            if (m === 7 || m === 8) return CONSTANTS.SUMMER_VACATION_LF;
+            if ((m === 3 && day >= 25) || (m === 4 && day <= 5)) return CONSTANTS.EASTER_LF;
+            if (m === 12 && day >= 20 && day <= 31) return CONSTANTS.CHRISTMAS_LF;
+            if (m === 1 || m === 2) return CONSTANTS.WINTER_VACATION_LF;
+            if (w === 5 || w === 6 || w === 0) return CONSTANTS.WEEKEND_LF;
+            return 1.0;
+        },
+        getHolidayName(dateStr) {
+            if (!dateStr) return '📅 No Date';
+            const d = new Date(dateStr + 'T00:00:00');
+            const m = d.getMonth() + 1, day = d.getDate(), w = d.getDay();
+            if ((m === 1 && day >= 15) || (m === 2 && day <= 15)) return '🚀 Spring Festival';
+            if ((m === 9 && day >= 28) || (m === 10 && day <= 8)) return '🎉 National Day';
+            if ((m === 4 && day >= 28) || (m === 5 && day <= 5)) return '🌿 Labor Day';
+            if (m === 7 || m === 8) return '☀️ Summer Vacation';
+            if ((m === 3 && day >= 25) || (m === 4 && day <= 5)) return '🥚 Easter';
+            if (m === 12 && day >= 20 && day <= 31) return '🎄 Christmas';
+            if (m === 1 || m === 2) return '❄️ Winter Vacation';
+            if (w === 5 || w === 6 || w === 0) return '📅 Weekend';
+            return '📅 Weekday';
+        },
+        getTimeFactor(timeStr) {
+            if (!timeStr) return 1.0;
+            const h = parseInt(timeStr.split(':')[0]);
+            if (h >= 22 || h <= 5) return CONSTANTS.RED_EYE_LF;
+            if (h >= 6 && h <= 7) return CONSTANTS.EARLY_MORNING_LF;
+            if (h >= 8 && h <= 9) return CONSTANTS.MORNING_LF;
+            if (h >= 10 && h <= 15) return CONSTANTS.GOLDEN_HOUR_LF;
+            if (h >= 16 && h <= 18) return CONSTANTS.AFTERNOON_LF;
+            if (h >= 19 && h <= 21) return CONSTANTS.EVENING_LF;
+            return 1.0;
+        },
+        getTimeName(timeStr) {
+            if (!timeStr) return '';
+            const h = parseInt(timeStr.split(':')[0]);
+            if (h >= 22 || h <= 5) return '🌙 Red Eye';
+            if (h >= 6 && h <= 7) return '🌅 Early Morning';
+            if (h >= 8 && h <= 9) return '☀️ Morning';
+            if (h >= 10 && h <= 15) return '🔥 Golden Hour';
+            if (h >= 16 && h <= 18) return '🌤 Afternoon';
+            if (h >= 19 && h <= 21) return '🌆 Evening';
+            return '';
+        },
+        getLF(ratio, flightData) {
+            let base;
+            if (ratio <= 0.6) base = 0.99;
+            else if (ratio <= 0.8) base = 0.98;
+            else if (ratio <= 1.0) base = 0.91;
+            else if (ratio <= 1.2) base = 0.78;
+            else if (ratio <= 1.5) base = 0.60;
+            else if (ratio <= 2.0) base = 0.36;
+            else base = 0.15;
+            const timeFactor = this.getTimeFactor(DOM.depTime.value);
+            const holidayFactor = this.getHolidayFactor(DOM.flightDate.value);
+            let distBonus = 0;
+            if (flightData.gcDist) {
+                const distKm = flightData.gcDist / 0.539957;
+                if (distKm < 800) distBonus = 0.04;
+                else if (distKm > 5000) distBonus = -0.03;
+            }
+            let airlineBonus = 0;
+            if (flightData.airlineConfig) {
+                if (flightData.airlineConfig.name === 'Budget') airlineBonus = 0.06;
+                else if (flightData.airlineConfig.name === 'Full Service') airlineBonus = 0.02;
+            }
+            let finalLf = (base + distBonus + airlineBonus) * timeFactor * holidayFactor;
+            finalLf += (Math.random() - 0.5) * 0.06;
+            return Math.min(0.99, Math.max(0.10, finalLf));
+        }
+    };
+
+    const FuelEngine = {
+        getAltitudeFuelFactor(fl) {
+            const table = { 
+                280: 1.08, 290: 1.05, 300: 1.02, 310: 1.00, 320: 0.97, 330: 0.95, 
+                340: 0.92, 350: 0.90, 360: 0.88, 370: 0.86, 380: 0.85, 390: 0.84, 
+                400: 0.83, 410: 0.84, 420: 0.86, 430: 0.88 
+            };
+            return table[fl] || 0.92;
+        },
+        getCostIndexFactors(ci) {
+            const speedFactor = 0.96 + (ci / 999) * 0.08;
+            const fuelFactor = 1.04 - (ci / 999) * 0.10;
+            return { speedMult: speedFactor, fuelMult: fuelFactor };
+        },
+        getFactors(policy) {
+            if (policy === "1") return { 
+                name: "Compact", cont: 0.03, alt: 0.08, res: 0.05, 
+                extraBase: 400, extraMul: 0.8 
+            };
+            if (policy === "3") return { 
+                name: "High Redundancy", cont: 0.08, alt: 0.18, res: 0.12, 
+                extraBase: 800, extraMul: 1.5 
+            };
+            return { 
+                name: "Standard", cont: 0.05, alt: 0.12, res: 0.08, 
+                extraBase: 500, extraMul: 1.0 
+            };
+        }
+    };
+
+    function updateFundsUI() {
+        DOM.uiFunds.innerText = '$' + (state.funds).toLocaleString('en-US', {minimumFractionDigits: 2});
+        if (state.funds < 0) DOM.uiFunds.classList.add('loss');
+        else DOM.uiFunds.classList.remove('loss');
+    }
+
+    function showLoading(title, text) {
+        DOM.loadingTitle.innerText = title;
+        DOM.loadingText.innerText = text;
+        DOM.loadingOverlay.style.display = 'flex';
+    }
+
+    function hideLoading() {
+        DOM.loadingOverlay.style.display = 'none';
+    }
+
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        window.scrollTo(0, 0);
+    }
+
+    function parseAirports(text) {
+        const lines = text.split(/\r?\n/), result = [];
+        for (let i = 1; i < lines.length; i++) {
+            let line = lines[i].trim(); if (!line) continue;
+            let parts = [], inQuote = false, current = '';
+            for (let ch = 0; ch < line.length; ch++) {
+                let c = line[ch];
+                if (c === '"') inQuote = !inQuote;
+                else if (c === ',' && !inQuote) { parts.push(current); current = ''; }
+                else current += c;
+            }
+            parts.push(current);
+            for (let j = 0; j < parts.length; j++) parts[j] = parts[j].replace(/^"|"$/g, '').trim();
+            if (parts.length < 13) continue;
+            let ident = parts[0], name = parts[2], gpsCode = parts[8], iataCode = parts[9], coordStr = parts[12];
+            let icao = (gpsCode && gpsCode.length === 4) ? gpsCode : (ident && ident.length === 4 ? ident : "");
+            let coordMatch = coordStr.match(/([-+]?\d+\.?\d*)\s*[, ]\s*([-+]?\d+\.?\d*)/);
+            if (coordMatch && icao) {
+                result.push({ 
+                    icao: icao.toUpperCase(), 
+                    iata: iataCode ? iataCode.toUpperCase() : "", 
+                    name: name || icao, 
+                    lat: parseFloat(coordMatch[1]), 
+                    lon: parseFloat(coordMatch[2]) 
+                });
+            }
+        }
+        return result;
+    }
+
+    function parseAircrafts(text) {
+        const lines = text.split(/\r?\n/), result = [];
+        for (let i = 1; i < lines.length; i++) {
+            let p = lines[i].trim().split(","); if (p.length < 7) continue;
+            let maxFuel = parseFloat(p[2]), speed = parseFloat(p[3]), baseFF = parseFloat(p[4]), 
+                wf = parseFloat(p[5]), taxi = parseFloat(p[6]);
+            if (maxFuel > 0) {
+                let cap = maxFuel > 100000 ? 400 : (maxFuel > 30000 ? 250 : 180);
+                if(p[1].includes("Concorde")) cap = 100;
+                result.push({ 
+                    id: p[0].trim(), 
+                    name: p[1].trim(), 
+                    maxSeats: cap, 
+                    maxFuel, 
+                    speed, 
+                    baseFF, 
+                    weightFactor: wf, 
+                    taxi 
+                });
+            }
+        }
+        return result;
+    }
+
+    async function bootSystem() {
+        DOM.dbStatus.innerText = "Loading Database...";
+        DOM.dbStatus.style.color = "var(--text-muted)";
+        try {
+            const apFile = DOM.airportFile.files[0];
+            const acFile = DOM.aircraftFile.files[0];
+            let apText = "", acText = "";
+            if (apFile) {
+                DOM.dbStatus.innerText = "Reading Local Airport File...";
+                apText = await apFile.text();
+            }
+            if (acFile) {
+                DOM.dbStatus.innerText = "Reading Local Aircraft File...";
+                acText = await acFile.text();
+            }
+            if (!apFile) {
+                DOM.dbStatus.innerText = "Downloading Airport Data...";
+                try {
+                    const apResp = await fetch("https://raw.githubusercontent.com/2401211703weiwei-byte/RFS/main/raw_airports.csv");
+                    if (apResp.ok) apText = await apResp.text();
+                } catch (e) { console.log("Download Failed", e); }
+            }
+            if (!acFile) {
+                DOM.dbStatus.innerText = "Downloading Aircraft Data...";
+                try {
+                    const acResp = await fetch("https://raw.githubusercontent.com/2401211703weiwei-byte/RFS/main/aircrafts.csv");
+                    if (acResp.ok) acText = await acResp.text();
+                } catch (e) { console.log("Download Failed", e); }
+            }
+            if (apText) state.airports = parseAirports(apText);
+            if (acText) state.aircrafts = parseAircrafts(acText);
+            if (state.airports.length === 0) {
+                DOM.dbStatus.innerText = "Using Built-in Airport Data";
+                state.airports = [
+                    {icao:"ZBAA",iata:"PEK",name:"Beijing Capital",lat:40.0799,lon:116.5891},
+                    {icao:"ZSPD",iata:"PVG",name:"Shanghai Pudong",lat:31.1434,lon:121.8058},
+                    {icao:"VHHH",iata:"HKG",name:"Hong Kong",lat:22.3080,lon:113.9185},
+                    {icao:"ZGGG",iata:"CAN",name:"Guangzhou Baiyun",lat:23.3924,lon:113.2988},
+                    {icao:"ZGSZ",iata:"SZX",name:"Shenzhen Baoan",lat:22.6393,lon:113.8106}
+                ];
+            }
+            if (state.aircrafts.length === 0) {
+                DOM.dbStatus.innerText = "Using Built-in Aircraft Data";
+                state.aircrafts = [
+                    {id:"B737-800",name:"Boeing 737-800",maxSeats:189,maxFuel:20894,speed:450,baseFF:2500,weightFactor:0.00003,taxi:200},
+                    {id:"A320neo",name:"Airbus A320neo",maxSeats:180,maxFuel:23859,speed:447,baseFF:2200,weightFactor:0.000028,taxi:180},
+                    {id:"B787-9",name:"Boeing 787-9",maxSeats:296,maxFuel:126206,speed:487,baseFF:5800,weightFactor:0.000022,taxi:350}
+                ];
+            }
+            state.airportCoords = {}; state.airportNames = {};
+            state.airports.forEach(a => {
+                state.airportCoords[a.icao] = { lat:a.lat, lon:a.lon };
+                state.airportNames[a.icao] = a.name;
+                if(a.iata) { state.airportCoords[a.iata] = { lat:a.lat, lon:a.lon }; state.airportNames[a.iata] = a.name; }
+            });
+            DOM.acSelect.innerHTML = "";
+            state.aircrafts.forEach((ac, idx) => DOM.acSelect.add(new Option(ac.name, idx)));
+            DOM.dbStatus.innerText = `✅ Loaded | Airports:${state.airports.length} | Aircraft:${state.aircrafts.length}`;
+            DOM.dbStatus.style.color = "var(--success)";
+            DOM.flightSetupArea.style.display = "block";
+            DOM.flightDate.value = new Date().toISOString().split('T')[0];
+            updateDateInfo(); updateTimeInfo(); updateAcInfo();
+        } catch (e) {
+            customAlert("Load Failed: " + e.message, "❌");
+            DOM.dbStatus.innerText = "❌ Load Failed";
+            console.error(e);
+        }
+    }
+
+    function getAirlineTypeConfig() {
+        const type = document.querySelector('input[name="airlineType"]:checked').value;
+        if (type === 'budget') return {
+            name: 'Budget',
+            priceMult: 0.40,
+            costMult: 0.4,
+            surchargeMult: 2.5,
+            lfBonus: 0.2,
+            desc: '💰 Budget: Low price, low cost, more surcharge'
+        };
+        if (type === 'fullservice') return {
+            name: 'Full Service',
+            priceMult: 1.30,
+            costMult: 1.05,
+            surchargeMult: 1.3,
+            lfBonus: 0.05,
+            desc: '👑 Full Service: Good service, higher cost'
+        };
+        return {
+            name: 'Standard',
+            priceMult: 0.70,
+            costMult: 0.85,
+            surchargeMult: 1.0,
+            lfBonus: 0.1,
+            desc: '✈️ Standard: Moderate price & cost'
+        };
+    }
+
+    function updateAirlineType() {
+        const config = getAirlineTypeConfig();
+        DOM.airlineTypeInfo.innerText = config.desc;
+        calcRoute();
+    }
+
+    function updateDateInfo() {
+        const ds = DOM.flightDate.value;
+        DOM.dateInfo.innerText = `${PricingEngine.getHolidayName(ds)} (Demand×${PricingEngine.getHolidayFactor(ds).toFixed(2)})`;
+        calcRoute();
+    }
+
+    function updateTimeInfo() {
+        const ts = DOM.depTime.value;
+        DOM.timeInfo.innerText = `${PricingEngine.getTimeName(ts)} (Demand×${PricingEngine.getTimeFactor(ts).toFixed(2)})`;
+        calcRoute();
+    }
+
+    function updateDiscount() {
+        let val = parseFloat(DOM.discountInput.value);
+        if (isNaN(val) || val < 0.5) val = 0.5;
+        if (val > 10) val = 10;
+        const discount = val / 10;
+        if (state.flightData.baseEco) {
+            DOM.priceEco.value = Math.floor(state.flightData.baseEco * discount / 6.9);
+        }
+        if (state.flightData.basePrm) {
+            DOM.pricePremium.value = Math.floor(state.flightData.basePrm * discount / 6.9);
+        }
+        DOM.discountInfo.innerText = val === 10 ? 'No Discount' : `${val}% Discount`;
+    }
+
+    function updateAcInfo() {
+        const plane = state.aircrafts[DOM.acSelect.value];
+        if(plane) {
+            DOM.acMaxSeats.innerText = `Max Seats: ${plane.maxSeats} Seats`;
+            if(plane.name.includes("Concorde")) {
+                DOM.capPremium.value = 100;
+                DOM.capEco.value = 0;
+            } else {
+                const prmSeats = Math.floor(plane.maxSeats * 0.12);
+                DOM.capPremium.value = prmSeats;
+                DOM.capEco.value = plane.maxSeats - prmSeats;
+            }
+        }
+        calcRoute();
+    }
+
+    function calcRoute() {
+        const depCode = DOM.depApt.value.toUpperCase().trim();
+        const arrCode = DOM.arrApt.value.toUpperCase().trim();
+        const dep = state.airportCoords[depCode], arr = state.airportCoords[arrCode];
+        DOM.depName.innerText = dep ? `📍 ${state.airportNames[depCode]}` : '';
+        DOM.arrName.innerText = arr ? `📍 ${state.airportNames[arrCode]}` : '';
+        if (dep && arr) {
+            state.flightData.depCode = depCode; 
+            state.flightData.arrCode = arrCode;
+            const R = 6371;
+            const dLat = (arr.lat-dep.lat)*Math.PI/180;
+            const dLon = (arr.lon-dep.lon)*Math.PI/180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(dep.lat*Math.PI/180)*Math.cos(arr.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+            const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            state.flightData.gcDist = distKm * 0.539957;
+            const plane = state.aircrafts[DOM.acSelect.value];
+            state.flightData.isConcorde = plane && plane.name.includes("Concorde");
+            state.flightData.isFirstClass = document.querySelector('input[name="cabin"]:checked').value === 'first';
+            state.flightData.isFirstClass = document.querySelector('input[name="cabin"]:checked').value === 'first';
+            
+            const ac = getAirlineTypeConfig();
+            let baseEco = Math.floor(PricingEngine.calcBaseEcoPrice(distKm) * ac.priceMult);
+            let basePrm = Math.floor(baseEco * PricingEngine.calcPrmMultiplier(distKm, state.flightData.isFirstClass));
+            
+            if(state.flightData.isConcorde) {
+                basePrm = Math.floor(baseEco * 5);
+                baseEco = Math.floor(baseEco * 2.8);
+            }
+            
+            const holidayPriceMult = PricingEngine.getHolidayPriceMultiplier(DOM.flightDate.value);
+            state.flightData.baseEco = Math.floor(baseEco * holidayPriceMult);
+            state.flightData.basePrm = Math.floor(basePrm * holidayPriceMult);
+            
+            let discountVal = parseFloat(DOM.discountInput.value);
+            if (isNaN(discountVal) || discountVal < 0.5 || discountVal > 10) discountVal = 10;
+            const discount = discountVal / 10;
+            
+            DOM.priceEco.value = Math.floor(state.flightData.baseEco * discount / 6.9);
+            DOM.pricePremium.value = Math.floor(state.flightData.basePrm * discount / 6.9);
+        } else {
+            state.flightData.gcDist = 0;
+        }
+    }
+    function updateUI() {
+        if (state.flightData.isConcorde) {
+            DOM.lblPremiumSeat.innerText = 'Supersonic Seats';
+            DOM.lblPremiumPrice.innerText = 'Supersonic Price (USD)';
+            return;
+        }
+        state.flightData.isFirstClass = document.querySelector('input[name="cabin"]:checked').value === 'first';
+        DOM.lblPremiumSeat.innerText = state.flightData.isFirstClass ? 'First Class Seats' : 'Business Class Seats';
+        DOM.lblPremiumPrice.innerText = state.flightData.isFirstClass ? 'First Class Price (USD)' : 'Business Class Price (USD)';
+        calcRoute();
+    }
+    function sellTickets() {
+        if (!state.flightData.gcDist || state.flightData.gcDist <= 0) { 
+            customAlert("Please enter valid departure/arrival airports!", '⚠️'); 
+            return; 
+        }
+        
+        const plane = state.aircrafts[DOM.acSelect.value];
+        const capPrm = parseInt(DOM.capPremium.value) || 0;
+        const capEco = parseInt(DOM.capEco.value) || 0;
+        
+        if(state.flightData.isConcorde && (capPrm + capEco > 100)) { 
+            customAlert('Concorde only allows max 100 passengers!', '⚠️'); 
+            return; 
+        }
+        if(capPrm + capEco > plane.maxSeats + 30) { 
+            customAlert('Total seats exceed aircraft limit!', '⚠️'); 
+            return; 
+        }
+        
+        const prmPrice = parseFloat(DOM.pricePremium.value) || 0;
+        const ecoPrice = parseFloat(DOM.priceEco.value) || 0;
+        const ac = getAirlineTypeConfig();
+        
+        const holidayName = PricingEngine.getHolidayName(DOM.flightDate.value);
+        const timeName = PricingEngine.getTimeName(DOM.depTime.value);
+        
+        showLoading("AI Selling Tickets", `Date:${holidayName} | Time:${timeName}`);
+        
+        setTimeout(() => {
+            try {
+                state.flightData.aircraft = plane;
+                state.flightData.airlineConfig = ac;
+                
+                if(state.flightData.isConcorde) {
+                    state.flightData.prmName = 'Supersonic Class';
+                } else {
+                    state.flightData.prmName = state.flightData.isFirstClass ? 'First Class' : 'Business Class';
+                }
+                
+                const distKm = state.flightData.gcDist / 0.539957;
+                const ecoRef = Math.floor(PricingEngine.calcBaseEcoPrice(distKm) * ac.priceMult);
+                const prmRef = Math.floor(ecoRef * PricingEngine.calcPrmMultiplier(distKm, state.flightData.isFirstClass));
+                
+                const ecoRatio = ecoPrice / Math.max(1, ecoRef /6.9);
+                const prmRatio = prmPrice / Math.max(1, prmRef /6.9);
+                
+                state.flightData.prmSold = Math.floor(capPrm * PricingEngine.getLF(prmRatio, state.flightData));
+                state.flightData.ecoSold = Math.floor(capEco * PricingEngine.getLF(ecoRatio, state.flightData));
+                
+                state.flightData.prmSold = Math.min(state.flightData.prmSold, capPrm);
+                state.flightData.ecoSold = Math.min(state.flightData.ecoSold, capEco);
+                
+                state.flightData.pax = state.flightData.prmSold + state.flightData.ecoSold;
+                state.flightData.tktRev = (state.flightData.prmSold * prmPrice + state.flightData.ecoSold * ecoPrice) *6.9;
+                
+                const baseSurcharge = state.flightData.gcDist > 2000 ? 100 : 30;
+                state.flightData.surcharges = state.flightData.pax * Math.floor(baseSurcharge * ac.surchargeMult);
+                
+                DOM.salesReport.innerHTML = 
+                    `<b>Ticket Sales Done! [${ac.name}]</b><br>` +
+                    `<span style="color:var(--primary)">${state.flightData.prmName}</span>: <b>${state.flightData.prmSold}</b> / ${capPrm}<br>` +
+                    `<span style="color:var(--primary)">Economy Class</span>: <b>${state.flightData.ecoSold}</b> / ${capEco}<br>` +
+                    `Total Revenue: <b style="color:var(--success);">$${Math.round(state.flightData.tktRev/6.9).toLocaleString()}</b><br>` +
+                    `<small style="color:var(--text-muted)">Surcharge: $${Math.round(state.flightData.surcharges/6.9).toLocaleString()}</small>`;
+                
+                DOM.crewCount.value = Math.max(4, Math.ceil(state.flightData.pax / 30));
+                DOM.cargoKg.value = Math.floor(state.flightData.gcDist * 1.2 + (plane.maxSeats - state.flightData.pax) * 15);
+                DOM.mealKg.value = Math.floor(state.flightData.pax * 1.2);
+                
+                state.flightData.firstEcoPrice = ecoPrice;
+                state.flightData.firstPrmPrice = prmPrice;
+                state.flightData.firstEcoSold = state.flightData.ecoSold;
+                state.flightData.firstPrmSold = state.flightData.prmSold;
+                
+                hideLoading();
+                autoSetDispatchDefaults(plane, state.flightData.gcDist);
+                showPage('page-dispatch-input');
+                
+                const totalSeats = capPrm + capEco;
+                const loadFactor = state.flightData.pax / totalSeats;
+                if (loadFactor < 0.9) {
+                    setTimeout(() => {
+                        DOM.secondDiscountArea.style.display = 'block';
+                    }, 300);
+                }
+                
+            } catch (error) {
+                hideLoading();
+                console.error(error);
+                customAlert("Sales error: " + error.message, '❌');
+            }
+        }, 1200);
+    }
+    function previewSecondDiscount() {
+        let val = parseFloat(DOM.discountInput2.value);
+        if (isNaN(val) || val < 0.5) val = 0.5;
+        if (val > 10) val = 10;
+        const discount = val / 10;
+        
+        const capEco = parseInt(DOM.capEco.value) || 0;
+        const capPrm = parseInt(DOM.capPremium.value) || 0;
+        const remainEco = capEco - state.flightData.firstEcoSold;
+        const remainPrm = capPrm - state.flightData.firstPrmSold;
+        
+        const newEcoPrice = Math.floor(state.flightData.firstEcoPrice * discount);
+        const newPrmPrice = Math.floor(state.flightData.firstPrmPrice * discount);
+        
+        if (val === 10) {
+            DOM.secondDiscountPreview.innerText = 'No discount, no extra sales';
+        } else {
+            DOM.secondDiscountPreview.innerText = 
+                `After discount: Economy $${newEcoPrice} (${Math.max(0,remainEco)} left) | Premium $${newPrmPrice} (${Math.max(0,remainPrm)} left)`;
+        }
+    }
+    function applySecondDiscount() {
+        let val = parseFloat(DOM.discountInput2.value);
+        if (isNaN(val) || val < 0.5) val = 0.5;
+        if (val > 10) val = 10;
+        if (val === 10) { 
+            customAlert('No discount applied', '⚠️'); 
+            return; 
+        }
+        
+        const discount = val / 10;
+        const capEco = parseInt(DOM.capEco.value) || 0;
+        const capPrm = parseInt(DOM.capPremium.value) || 0;
+        const remainEco = capEco - state.flightData.firstEcoSold;
+        const remainPrm = capPrm - state.flightData.firstPrmSold;
+        
+        const newEcoPrice = Math.floor(state.flightData.firstEcoPrice * discount);
+        const newPrmPrice = Math.floor(state.flightData.firstPrmPrice * discount);
+        
+        const newEcoSold = Math.floor(Math.max(0, remainEco) * PricingEngine.getLF(newEcoPrice/(state.flightData.firstEcoPrice||1), state.flightData));
+        const newPrmSold = Math.floor(Math.max(0, remainPrm) * PricingEngine.getLF(newPrmPrice/(state.flightData.firstPrmPrice||1), state.flightData));
+        
+        const firstRev = (state.flightData.firstEcoSold * state.flightData.firstEcoPrice + state.flightData.firstPrmSold * state.flightData.firstPrmPrice)*6.9;
+        const secondRev = (newEcoSold * newEcoPrice + newPrmSold * newPrmPrice)*6.9;
+        
+        state.flightData.ecoSold = state.flightData.firstEcoSold + newEcoSold;
+        state.flightData.prmSold = state.flightData.firstPrmSold + newPrmSold;
+        state.flightData.pax = state.flightData.ecoSold + state.flightData.prmSold;
+        state.flightData.tktRev = firstRev + secondRev;
+        state.flightData.surcharges = state.flightData.pax * (state.flightData.gcDist > 2000 ? 100 : 30)*6.9;
+        
+        DOM.salesReport.innerHTML = 
+            `<b>Secondary Sales Done! [${state.flightData.airlineConfig.name}]</b><br>` +
+            `<span style="color:var(--primary)">${state.flightData.prmName}</span>: <b>${state.flightData.prmSold}</b><br>` +
+            `<span style="color:var(--primary)">Economy Class</span>: <b>${state.flightData.ecoSold}</b><br>` +
+            `Total: <b style="color:var(--success);">$${Math.round(state.flightData.tktRev/6.9).toLocaleString()}</b>`;
+        
+        DOM.secondDiscountArea.style.display = 'none';
+        DOM.crewCount.value = Math.max(4, Math.ceil(state.flightData.pax / 30));
+    }
+    function autoSetDispatchDefaults(plane, distNm) {
+        if (distNm < 500) DOM.cruiseFL.value = '280';
+        else if (distNm < 1500) DOM.cruiseFL.value = '320';
+        else if (distNm < 4000) DOM.cruiseFL.value = '360';
+        else DOM.cruiseFL.value = '380';
+        
+        if (distNm < 500) DOM.costIndex.value = '10';
+        else if (distNm < 2000) DOM.costIndex.value = '30';
+        else DOM.costIndex.value = '50';
+    }
+    function submitDispatch() {
+        const plane = state.flightData.aircraft;
+        state.flightData.crewCount = parseInt(DOM.crewCount.value) || 8;
+        
+        showLoading("Dispatch Calculating", "Fuel & Performance Modeling");
+        
+        setTimeout(() => {
+            const cargo = parseFloat(DOM.cargoKg.value) || 0;
+            const temp = parseFloat(DOM.envTemp.value) || 15;
+            const alt = parseFloat(DOM.envAlt.value) || 0;
+            const wind = parseFloat(DOM.envWind.value) || 0;
+            const fPol = FuelEngine.getFactors(DOM.fuelPolicy.value);
+            
+            let rf = 1.08;
+            if(state.flightData.gcDist > 2000) rf = 1.05;
+            if(state.flightData.gcDist > 4000) rf = 1.03;
+            if(state.flightData.gcDist < 300) rf = 1.12;
+            
+            const we = Math.min(1.15, Math.max(0.85, 1 + wind / plane.speed));
+            const cruiseFL = parseInt(DOM.cruiseFL.value) || 340;
+            const ci = parseInt(DOM.costIndex.value) || 30;
+            
+            const altFuelFactor = FuelEngine.getAltitudeFuelFactor(cruiseFL);
+            const ciFactors = FuelEngine.getCostIndexFactors(ci);
+            const adjustedSpeed = plane.speed * ciFactors.speedMult;
+            
+            state.flightData.routeDist = state.flightData.gcDist * rf * we;
+            state.flightData.flightHours = state.flightData.routeDist / adjustedSpeed;
+            
+            const mKg = state.flightData.pax * (Math.min(150, 25 + state.flightData.flightHours * 14) / 20);
+            DOM.mealKg.value = Math.floor(mKg);
+            
+            const payload = state.flightData.pax * 96 + cargo + mKg;
+            const lf = Math.min(1.40, Math.max(0.90, 1 + payload / 25000 * plane.weightFactor));
+            const ec = (1 + Math.max(0, (temp - 15) / 100)) * (1 + alt / 20000);
+            
+            let tf = plane.baseFF * state.flightData.flightHours * we * lf * ec * altFuelFactor * ciFactors.fuelMult;
+            if(state.flightData.routeDist < 500) tf *= 1.15;
+            if(state.flightData.routeDist > 4000) tf *= 0.95;
+            
+            const af = tf * fPol.alt, cf = tf * fPol.cont, rv = plane.baseFF * 0.5 * lf, hf = plane.baseFF * 0.25 * lf;
+            const ex = (state.flightData.routeDist > 3000 ? fPol.extraBase * 1.5 : fPol.extraBase) * fPol.extraMul;
+            
+            state.flightData.blockFuel = plane.taxi + tf + cf + af + rv + ex + hf;
+            const isOverload = state.flightData.blockFuel > plane.maxFuel;
+            if(isOverload) state.flightData.blockFuel = plane.maxFuel;
+            
+            let termHtml = `
+<div>==================================================</div>
+<div>              ✈ AIRLINE RELEASE DOCUMENT ✈</div>
+<div>==================================================</div>
+<div>Route: ${state.flightData.depCode} → ${state.flightData.arrCode}</div>
+<div>Aircraft: ${plane.name}</div>
+<div>Airline: ${state.flightData.airlineConfig.name}</div>
+<div>Policy: ${fPol.name}</div>
+<div>FL: FL${cruiseFL} | CI: ${ci}</div>
+<div>--------------------------------------------------</div>
+<div>Pax: ${state.flightData.pax} | Cargo/Catering: ${Math.floor(cargo + mKg)} kg</div>
+<div><span class="hl">Payload: ${payload.toFixed(0)} kg</span></div>
+<div>--------------------------------------------------</div>
+<div>Weather: ${temp}°C | ${alt}m | Wind ${wind}kt</div>
+<div>GC Dist: ${state.flightData.gcDist.toFixed(1)} NM</div>
+<div>Flight Time: ${state.flightData.flightHours.toFixed(2)} Hrs</div>
+<div>--------------------------------------------------</div>
+<div>Trip Fuel: ${Math.ceil(tf)} kg</div>
+<div>Reserve: ${Math.ceil(cf + af)} kg</div>
+<div>Taxi Reserve: ${Math.ceil(rv + hf + plane.taxi + ex)} kg</div>
+<div>--------------------------------------------------</div>
+<div><span style="font-size:1.2em; color:#00ffff; font-weight:bold;">BLOCK FUEL: ${Math.ceil(state.flightData.blockFuel)} kg</span></div>`;
+            
+            if(isOverload) {
+                termHtml += `<div><span class="warn">⚠️ OVER MAX FUEL ${plane.maxFuel} kg</span></div>`;
+            } else {
+                termHtml += `<div>Fuel Index: ${(state.flightData.blockFuel/plane.maxFuel*100).toFixed(1)}%</div><div><span style="color:#00ff00;">✅ CLEARED FOR TAKE OFF</span></div>`;
+            }
+            
+            DOM.releaseTerminal.innerHTML = termHtml;
+            DOM.releaseTerminal.style.display = 'block';
+            
+            const dTs = DOM.depTime.value || '08:00';
+            DOM.tktFlt.innerText = DOM.fltNum.value.toUpperCase();
+            DOM.tktDep.innerText = state.flightData.depCode.substring(0,3);
+            DOM.tktArr.innerText = state.flightData.arrCode.substring(0,3);
+            DOM.tktDepTime.innerText = dTs;
+            DOM.tktBrdTime.innerText = Utils.Time.addMinutesStr(dTs, -40);
+            DOM.tktArrTime.innerText = Utils.Time.addMinutesStr(dTs, state.flightData.flightHours * 60 + 30);
+            DOM.tktDate.innerText = DOM.flightDate.value || 'TODAY';
+            DOM.tktPNR.innerText = Math.random().toString(36).substring(2,8).toUpperCase();
+            DOM.tktSeq.innerText = Math.floor(Math.random() * 150 + 1).toString().padStart(3,'0');
+            DOM.tktSeat.innerText = Math.floor(Math.random() * 30 + 1) + ['A','B','C','H','J','K'][Math.floor(Math.random() * 6)];
+            DOM.tktGate.innerText = 'G' + Math.floor(Math.random() * 99 + 1);
+            
+            if(state.flightData.isConcorde) {
+                DOM.tktCabin.innerText = 'SUPERSONIC';
+            } else {
+                DOM.tktCabin.innerText = state.flightData.isFirstClass ? 'FIRST' : 'BUSINESS';
+            }
+            
+            toggleView('ticket');
+            hideLoading();
+            showPage('page-dispatch-release');
+        }, 1200);
+    }
+    function toggleView(t) {
+        DOM.releaseTerminal.style.display = t === 'terminal' ? 'block' : 'none';
+        DOM.passengerTicket.style.display = t === 'ticket' ? 'flex' : 'none';
+        DOM.tabTerm.style.color = t === 'terminal' ? 'var(--primary)' : 'var(--text)';
+        DOM.tabTkt.style.color = t === 'ticket' ? 'var(--primary)' : 'var(--text)';
+    }
+    function startFlight() {
+        state.flightLogData = [];
+        state.flightData.expectedDates = [];
+        const now = new Date();
+        const takeoffTime = new Date(`${DOM.flightDate.value}T${DOM.depTime.value}:00`);
+        const totalGroundMin = Math.max(0, (takeoffTime - now) / 60000);
+        const boardMin = Math.round(totalGroundMin * 0.6);
+        let airTimeMins = (state.flightData.routeDist / state.flightData.aircraft.speed) * 60;
+        let climbTime = Math.min(25, Math.max(5, airTimeMins * 0.25));
+        let descentTime = Math.min(35, Math.max(10, airTimeMins * 0.3));
+        let cruiseTime = Math.max(0, airTimeMins - climbTime - descentTime);
+        
+        state.flightData.expectedDates = [
+            now,
+            new Date(+now + boardMin * 60000),
+            new Date(+now + boardMin * 60000),
+            takeoffTime,
+            new Date(+takeoffTime + climbTime * 60000),
+            new Date(+takeoffTime + (climbTime + cruiseTime) * 60000),
+            new Date(+takeoffTime + airTimeMins * 60000),
+            new Date(+takeoffTime + airTimeMins * 60000 + 10 * 60000)
+        ];
+        
+        DOM.phaseContainer.innerHTML = '';
+        state.phaseNames.forEach((p, idx) => {
+            const div = document.createElement('div');
+            div.className = 'phase-item';
+            div.id = 'phase-' + idx;
+            div.innerHTML = `<div class="phase-left"><span class="phase-icon">✅</span><span>${p}</span></div><div class="phase-expected">ETA ${Utils.Time.format(state.flightData.expectedDates[idx])}</div>`;
+            DOM.phaseContainer.appendChild(div);
+        });
+        
+        showPage('page-flight');
+        DOM.flightTitle.innerText = `Flight ${DOM.fltNum.value} In Progress`;
+        state.flightLogData.push({
+            phase: state.phaseNames[0],
+            timeStr: Utils.Time.format(now),
+            diffHtml: '<span class="log-diff diff-early">(Auto)</span>',
+            diffMins: 0
+        });
+        document.getElementById('phase-0').classList.add('completed');
+        state.currentPhaseIdx = 1;
+        updatePhaseUI();
+    }
+    function advancePhase() {
+        if (state.currentPhaseIdx >= state.phaseNames.length) return;
+        const curr = document.getElementById('phase-' + state.currentPhaseIdx);
+        curr.classList.remove('active');
+        curr.classList.add('completed');
+        curr.querySelector('.phase-icon').innerText = '✅';
+        
+        let now = new Date();
+        let expected = state.flightData.expectedDates[state.currentPhaseIdx];
+        let diffMins = Utils.Time.diffMinutes(now, expected);
+        let diffHtml = Math.abs(diffMins) <= 2 ? '<span class="log-diff diff-early">(On Time)</span>' :
+                      diffMins < -2 ? `<span class="log-diff diff-early">(${Math.abs(diffMins)} mins Early)</span>` :
+                      `<span class="log-diff diff-late">(${diffMins} mins Late)</span>`;
+        
+        state.flightLogData.push({
+            phase: state.phaseNames[state.currentPhaseIdx],
+            timeStr: Utils.Time.format(now),
+            diffHtml: diffHtml,
+            diffMins: diffMins
+        });
+        
+        state.currentPhaseIdx++;
+        state.currentPhaseIdx < state.phaseNames.length ? updatePhaseUI() : generateReport();
+    }
+    function updatePhaseUI() {
+        const idx = state.currentPhaseIdx;
+        if (idx >= state.phaseNames.length) {
+            DOM.btnNextPhase.innerText = "Flight Completed";
+            DOM.btnNextPhase.disabled = true;
+            return;
+        }
+        document.querySelectorAll('.phase-item').forEach((item, i) => {
+            item.classList.remove('active');
+            if (i === idx) item.classList.add('active');
+        });
+        DOM.btnNextPhase.innerText = "Approve: " + state.phaseNames[idx];
+        DOM.btnNextPhase.disabled = false;
+    }
+    function generateReport() {
+        showLoading("Calculating Profit", "Final Accounting");
+        
+        setTimeout(() => {
+            const revTotal = (state.flightData.tktRev + state.flightData.surcharges)/6.9;
+            const airlineConfig = state.flightData.airlineConfig;
+            const timeFactorCost = PricingEngine.getTimeFactor(DOM.depTime.value);
+            const timeCostDiscount = timeFactorCost < 0.8 ? 0.7 : 1.0;
+            
+            const cFuel = Math.ceil(state.flightData.blockFuel) * CONSTANTS.FUEL_PRICE_PER_KG * airlineConfig.costMult * timeCostDiscount;
+            const cCrew = state.flightData.crewCount * (CONSTANTS.CREW_BASE_SALARY + state.flightData.flightHours * CONSTANTS.CREW_HOURLY_RATE) * airlineConfig.costMult * timeCostDiscount;
+            
+            let parkBase;
+            if (state.flightData.gcDist < 500) parkBase = 1500;
+            else if (state.flightData.gcDist < 2000) parkBase = 3000;
+            else if (state.flightData.gcDist < 5000) parkBase = 6000;
+            else parkBase = 10000;
+            
+            const cPark = (parkBase + (state.flightData.aircraft.maxSeats * 15)) * airlineConfig.costMult * timeCostDiscount;
+            const cATC = state.flightData.gcDist * CONSTANTS.ATC_FEE_PER_NM * airlineConfig.costMult * timeCostDiscount;
+            
+            let mealCostPerPax = Math.min(150, 30 + state.flightData.flightHours * 12) * airlineConfig.costMult * timeCostDiscount;
+            const cCatering = state.flightData.pax * mealCostPerPax;
+            
+            const cDeprec = state.flightData.flightHours * (state.flightData.aircraft.maxSeats * 55) * airlineConfig.costMult * timeCostDiscount;
+            const cGround = state.flightData.pax * CONSTANTS.GROUND_SERVICE_PER_PAX * airlineConfig.costMult * timeCostDiscount;
+            const cMaint = state.flightData.flightHours * CONSTANTS.MAINTENANCE_PER_HOUR * airlineConfig.costMult * timeCostDiscount;
+            
+            const costTotal = (cFuel + cCrew + cPark + cATC + cCatering + cDeprec + cGround + cMaint)/6.9;
+            const netProfit = revTotal - costTotal;
+            
+            state.funds += netProfit;
+            localStorage.setItem('rfsAirlineFunds', state.funds);
+            
+            let finalDiff = state.flightLogData[state.flightLogData.length - 1].diffMins;
+            let absDiff = Math.abs(finalDiff);
+            let h = Math.floor(absDiff / 60);
+            let m = absDiff % 60;
+            let timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+            
+            let statusBanner = "";
+            if (finalDiff < 0) {
+                statusBanner = `<div class="status-badge status-early">✅ Arrived Early: ${timeStr}</div>`;
+            } else if (finalDiff > 0) {
+                statusBanner = `<div class="status-badge status-delayed">❌ Delayed: ${timeStr}</div>`;
+            } else {
+                statusBanner = `<div class="status-badge status-early">✅ On Time!</div>`;
+            }
+            
+            let logHtml = '<div class="flight-log"><div style="color:var(--text);font-weight:bold;margin-bottom:8px;">[ ATC FLIGHT LOG ]</div>';
+            state.flightLogData.forEach(l => {
+                logHtml += `<div class="log-item"><span>[${l.timeStr}] Actual</span><span style="flex:1;text-align:right;">${l.phase} ${l.diffHtml}</span></div>`;
+            });
+            logHtml += '</div>';
+            
+            let profitMargin = ((netProfit / revTotal) * 100).toFixed(1);
+            
+            DOM.receiptContent.innerHTML = statusBanner
+                + `<div style="color:var(--warning);margin-bottom:10px;">[${airlineConfig.name}] Settlement</div>`
+                + `<div class="receipt-row"><span style="color:var(--success)">Total Revenue</span><span>$${Math.round(revTotal).toLocaleString()}</span></div>`
+                + `<div class="receipt-row" style="margin-top:10px;color:var(--text-muted)">Direct Operating Costs:</div>`
+                + `<div class="receipt-row"><span>1. Fuel Cost:</span><span style="color:var(--danger)">-$${Math.round(cFuel/6.9).toLocaleString()}</span></div>`
+                + `<div class="receipt-row"><span>2. Crew Cost:</span><span style="color:var(--danger)">-$${Math.round(cCrew/6.9).toLocaleString()}</span></div>`
+                + `<div class="receipt-row"><span>3. Airport Fees:</span><span style="color:var(--danger)">-$${Math.round(cPark/6.9).toLocaleString()}</span></div>`
+                + `<div class="receipt-row"><span>4. ATC Fees:</span><span style="color:var(--danger)">-$${Math.round(cATC/6.9).toLocaleString()}</span></div>`
+                + `<div class="receipt-row"><span>5. Catering:</span><span style="color:var(--danger)">-$${Math.round(cCatering/6.9).toLocaleString()}</span></div>`
+                + `<div class="receipt-row"><span>6. Depreciation:</span><span style="color:var(--danger)">-$${Math.round(cDeprec/6.9).toLocaleString()}</span></div>`
+                + `<div class="receipt-row"><span>7. Ground Service:</span><span style="color:var(--danger)">-$${Math.round(cGround/6.9).toLocaleString()}</span></div>`
+                + `<div class="receipt-row"><span>8. Maintenance:</span><span style="color:var(--danger)">-$${Math.round(cMaint/6.9).toLocaleString()}</span></div>`
+                + `<div class="receipt-total"><span>Net Profit (Margin ${profitMargin}%)</span><span style="color:${netProfit>=0?'var(--success)':'var(--danger)'}">${netProfit>=0?'+':''}$${Math.round(netProfit).toLocaleString()}</span></div>`
+                + logHtml;
+            
+            hideLoading();
+            showPage('page-report');
+        }, 1500);
+    }
+    function finishAndReset() {
+        updateFundsUI();
+        state.flightData = {};
+        state.currentPhaseIdx = 0;
+        state.flightLogData = [];
+        DOM.depApt.value = '';
+        DOM.arrApt.value = '';
+        DOM.depName.innerText = '';
+        DOM.arrName.innerText = '';
+        DOM.secondDiscountArea.style.display = 'none';
+        showPage('page-plan');
+    }
+    function resetFunds() {
+        customConfirm("Reset funds to 10,000 USD?", function(result) {
+            if (result) {
+                state.funds = 10000;
+                localStorage.setItem('rfsAirlineFunds', state.funds);
+                updateFundsUI();
+                customAlert("Funds reset to 10,000 USD", '✅');
+            }
+        });
+    }
+    const KEY1 = "RFS2026";
+    const KEY2 = "AIRLINE";
+    const KEY3 = "V26PRO";
+    const SEED = 982451653;
+    const CHARSET = "BCDFGHJKMPQRTVWXY2346789";
+    function hash_mix(str, salt) {
+        let result = 0;
+        const len = str.length;
+        for (let i = 0; i < len; i++) {
+            const ch = str.charCodeAt(i);
+            const si = i % salt.length;
+            const sc = salt.charCodeAt(si);
+            result = ((result * 37 + ch * sc + SEED) ^ (result >>> 3)) >>> 0;
+        }
+        for (let i = 0; i < 5; i++) {
+            result = ((result * 1103515245 + 12345) & 0x7FFFFFFF) >>> 0;
+        }
+        return result >>> 0;
+    }
+    function verifyKey(inputKey) {
+        if (!inputKey || inputKey.trim() === '') return false;
+        let clean = inputKey.replace(/-/g, '');
+        if (clean.length !== 25) return false;
+        for (let ch of clean) {
+            if (!CHARSET.includes(ch)) return false;
+        }
+        const all_data = clean + KEY3;
+        const final_hash = hash_mix(all_data, KEY1 + KEY2);
+        const final_check = final_hash % 9973;
+        return final_check > 100;
+    }
+    function getCardType(inputKey) {
+        let clean = inputKey.replace(/-/g, '');
+        const firstIndex = CHARSET.indexOf(clean[0]);
+        if (firstIndex >= 0 && firstIndex <= 11) return "forever";
+        if (firstIndex >= 12 && firstIndex <= 23) return "day";
+        return "invalid";
+    }
+    function startExpiryCheck() {
+        setInterval(() => {
+            const saved = localStorage.getItem('rfsLicence');
+            if (!saved) return;
+            const data = JSON.parse(saved);
+            if (data.type === "day" && Date.now() - data.time > 86400000) {
+                localStorage.removeItem('rfsLicence');
+                customAlert('License expired!', '⚠️');
+                location.reload();
+            }
+        }, 30000);
+    }
+    function customAlert(msg, icon = '⚠️') {
+        const alertDiv = document.getElementById('customAlert');
+        const alertMsg = document.getElementById('alertMessage');
+        const alertIcon = document.getElementById('alertIcon');
+        alertIcon.innerText = icon;
+        alertMsg.innerText = msg;
+        alertDiv.style.display = 'flex';
+        document.getElementById('alertOkBtn').onclick = () => { alertDiv.style.display = 'none'; };
+    }
+    function customConfirm(msg, callback) {
+        const confirmDiv = document.getElementById('customConfirm');
+        const confirmMsg = document.getElementById('confirmMessage');
+        confirmMsg.innerText = msg;
+        confirmDiv.style.display = 'flex';
+        document.getElementById('confirmYesBtn').onclick = () => { confirmDiv.style.display = 'none'; callback(true); };
+        document.getElementById('confirmNoBtn').onclick = () => { confirmDiv.style.display = 'none'; callback(false); };
+    }
+    function getLicenseString() {
+        const input = document.getElementById('singleLicenseInput');
+        return input ? input.value.trim() : '';
+    }
+    function activateKey() {
+        const input = getLicenseString();
+        const keyBtn = document.getElementById('keyBtn');
+        
+        keyBtn.innerText = 'Processing...';
+        keyBtn.disabled = true;
+        setTimeout(() => {
+            if (!input) {
+                customAlert('Enter license key', '⚠️');
+                keyBtn.innerText = 'Confirm';
+                keyBtn.disabled = false;
+                return;
+            }
+            if (!verifyKey(input)) {
+                customAlert('Invalid license', '❌');
+                keyBtn.innerText = 'Confirm';
+                keyBtn.disabled = false;
+                return;
+            }
+            const type = getCardType(input);
+            const saved = localStorage.getItem('rfsLicence');
+            
+            if(saved) {
+                const data = JSON.parse(saved);
+                if(data.key === input) {
+                    DOM.keyModal.style.display = 'none';
+                    DOM.successExpire.innerText = data.type === 'forever' ? 'Permanent' : new Date(data.time + 86400000).toLocaleString();
+                    DOM.successModal.style.display = 'flex';
+                    setTimeout(() => DOM.successModal.style.display = 'none', 2000);
+                    keyBtn.innerText = 'Confirm';
+                    keyBtn.disabled = false;
+                    return;
+                }
+            }
+            if (type === "forever") {
+                localStorage.setItem('rfsLicence', JSON.stringify({ key: input, type: 'forever', time: Date.now() }));
+                DOM.keyModal.style.display = 'none';
+                DOM.successExpire.innerText = 'Permanent';
+                DOM.successModal.style.display = 'flex';
+            } else if (type === "day") {
+                const now = Date.now();
+                localStorage.setItem('rfsLicence', JSON.stringify({ key: input, type: 'day', time: now }));
+                DOM.keyModal.style.display = 'none';
+                DOM.successExpire.innerText = new Date(now + 86400000).toLocaleString();
+                startExpiryCheck();
+            } else {
+                customAlert('Invalid license', '❌');
+            }
+            keyBtn.innerText = 'Confirm';
+            keyBtn.disabled = false;
+            setTimeout(() => DOM.successModal.style.display = 'none', 2000);
+        }, 3500);
+    }
+    function init() {
+        DOM.keyModal.style.display = 'flex';
+        const savedFunds = localStorage.getItem('rfsAirlineFunds');
+        state.funds = savedFunds && !isNaN(parseFloat(savedFunds)) ? parseFloat(savedFunds) : 10000;
+        localStorage.setItem('rfsAirlineFunds', state.funds);
+        updateFundsUI();
+        history.pushState(null, '', location.href);
+        window.addEventListener('popstate', function () {
+            DOM.keyModal.style.display = 'flex';
+            history.pushState(null, '', location.href);
+        });
+        document.getElementById('pasteBtn').addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('singleLicenseInput').value = text;
+            } catch (err) {
+                customAlert('Paste failed', '⚠️');
+            }
+        });
+    }
+    return {
+        bootSystem,
+        updateAirlineType,
+        updateDateInfo,
+        updateTimeInfo,
+        updateDiscount,
+        updateAcInfo,
+        calcRoute,
+        updateUI,
+        sellTickets,
+        previewSecondDiscount,
+        applySecondDiscount,
+        submitDispatch,
+        toggleView,
+        startFlight,
+        advancePhase,
+        finishAndReset,
+        resetFunds,
+        activateKey,
+        init
+    };
+})();
+setTimeout(function() {
+    AirlineSystem.init();
+}, 100);
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(function() {
+        AirlineSystem.init();
+    }, 100);
+}
+</script>
+</body>
+</html>
